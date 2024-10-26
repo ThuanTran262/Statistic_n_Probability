@@ -1,9 +1,3 @@
----
-title: "R Notebook"
-output:
-  html_document:
-    df_print: paged
----
 ```{r}
 library("readxl")
 library(corrplot)
@@ -18,7 +12,7 @@ library(cleandata)
 
 ```{r}
 # Load the data
-data <- read_excel('./CSM.xlsx')
+data <- read_excel('../data/CSM.xlsx')
 head(data)
 ```
 
@@ -138,8 +132,9 @@ data <- subset(data, is.na(data$Budget) == FALSE)
 # sử dụng method cart
 imp <- mice(data, method='cart', seed=123)
 data_cpt <- complete(imp)
-data_cpt
 ```
+
+
 
 ```{r}
 t.test(data$Screens, data_cpt$Screens)
@@ -279,7 +274,7 @@ mean(exclude_data$MD)
 ```{r}
 data_cpt <- data_cpt %>% mutate(Group = case_when(MD > Lower & MD < Upper ~ 1,
                                        MD <= Lower | MD >= Upper ~ 2))
-data_cpt
+head(data_cpt)
 ```
 
 
