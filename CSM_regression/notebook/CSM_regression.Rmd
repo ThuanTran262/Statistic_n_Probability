@@ -1,3 +1,8 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
 ```{r}
 library("readxl")
 library(corrplot)
@@ -10,13 +15,17 @@ library(cleandata)
 ```
 
 
+[Data source](https://archive.ics.uci.edu/dataset/424/csm+conventional+and+social+media+movies+dataset+2014+and+2015)
+
+
+# 1. EDA
+
 ```{r}
-# Load the data
+# Load data
 data <- read_excel('../data/CSM.xlsx')
 head(data)
 ```
 
-# EDA dữ liệu
 
 ```{r}
 # Rename columns
@@ -26,34 +35,39 @@ colnames(data) = c("Movie", "Year", "Ratings", "Genre", "Gross", "Budget", "Scre
 
 
 ```{r}
-# Kiểm tra data shape
+# data shape
 nrow(data)
 length(colnames(data))
 ```
-Dữ liệu có 231 dòng và 14 cột
+The dataset has 231 rows and 12 columns
+
 
 ```{r}
-# Kiểm tra duplicate
+# check the duplicated rows
 nrow(unique(data))
 ```
 
-Dữ liệu không bị duplicate
+The data shape does not change after de-duplicating, so there are no duplicated rows in the dataset
 
 
 ```{r}
-# Kiểm tra data type
+# Check data type
 str(data)
 ```
-Nhận xét: \
-Bộ dữ liệu bao gồm cả những biến định tính và định lượng, các biến định tính là: Genre, Sequel, Sentiment
+Comment:\
 
-Biến Movie và biến Year không có ý nghĩa trong việc xây dựng model dự báo nên ta loại 2 biến này khỏi bộ dữ liệu
+The dataset contains both quantitative and qualitative variables:
+The qualitative variables: Genre, Sequel, Sentiment
+The quantitative variables: The remains
+
+We will exclude "Movie" and "Year" from model because they do not contribute to prediction.
 
 ```{r}
 data <- data[, c('Ratings', 'Genre', 'Gross', 'Budget', 'Screens', 'Sequel', 'Sentiment', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')]
 ```
 
-Ta đi encode các biến định tính
+
+Encoding qualitative variables:
 
 ```{r}
 unique(data$Genre)
@@ -67,7 +81,7 @@ unique(data$Sequel)
 unique(data$Sentiment)
 ```
 
-Biến Sequel (phần phim) và biến Sentiment (ý kiến khán giả) là những biến có thứ tự nên ta lựa chọn phương pháp Ordinal Encoding để xử lý
+Because Sequel and Sentiment is ordinal, we will apply Ordinal Encoding method for them. For Genre, we apply Dummy variables method.
 
 ```{r}
 data$Genre = relevel(as.factor(data$Genre), ref=1)
@@ -83,14 +97,13 @@ data$Sequel <- as.ordered(data$Sequel)
 ```
 
 
-# Kiểm tra giá trị null
+# Check missing values (null values)
 
 ```{r}
-# Kiểm tra giá trị null
 colSums(is.na(data))/nrow(data)
 ```
 
-Biến Aggregate_Followers có 15% dữ liệu bị null, biến Budget có 0.43% dữ liệu bị null và biến Screens có 4.3% dữ liệu null
+15%, 4.3%, 0.43% is the missing percentage of of Aggregate_Followers, Screens and Budget respectively
 
 ## Missing data pattern
 
@@ -98,65 +111,62 @@ Biến Aggregate_Followers có 15% dữ liệu bị null, biến Budget có 0.43
 md.pattern(data)
 ```
 
-Nhận xét:
-- Có 187 (~80.95%) quan sát không bị missing data ở bất cứ cột nào\
-- Có 33 (~14.28%) quan sát chỉ bị missing data ở cột Aggregate Followers\
-- Có 8 (~3.46%) quan sát chỉ bị missing data ở cột Screens\
-- Có 2 (~0.86%) quan sát bị missing data ở cả cột Aggregate_Followers và cột Screens\
-- Có 1 (~0.43%) quan sát chỉ bị missing data ở cột Budget\
+Comment:
 
-Trong những quan sát bị missing data, 95% là bị missing data ở 1 cột.
+- There are 187 (~80.95%) observations that are totally completed (no missing value in any column)\
+- There are 33 (~14.28%) observations that have missing values at only column Aggregate Followers \
+- There are 8 (~3.46%) observations that have missing values at only column Screens\
+- There are 2 (~0.86%) observations that have missing values at both Aggregate_Followers and cột Screens\
+- There is only 1 (~0.43%) observation that have missing value at only column Budget\
 
-## Đánh giá sự liên kết giữa các biến
+Most data is missed in only 1 column.
 
-```{r}
-flux(data)
-```
+The null percentage of Budget is very small (only 0.43%) so that we will remove this record from the dataset. For the Screens and Aggregate_Followers, we will fill missing data using "mice" algorithm
 
 ```{r}
-fluxplot(data, xlim=c(0,1), ylim=c(0,1),eqscplot = FALSE)
-```
-
-Ta thấy biến Aggregate_Followers có chỉ số outflux đều nhỏ cho thấy các giá trị được quan sát của biến này không có nhiều công dụng trong việc suy đoán giá trị missing của các biến còn lại và biến này có Influx nhỏ cho thấy các giá trị null của biến này không connect nhiều với các giá trị được quan sát của các biến còn lại.
-
-
-Biến Budget có tỷ lệ null rất nhỏ (chỉ có 1 giá trị null), ta lựa chọn bỏ đi 1 giá trị null ở biến Budget và fill null cho 2 biến Screens và Aggregate_Followers. Để điền giá trị cho các giá trị bị null, ta sử dụng thuật toán mice
-
-```{r}
-# Loại đi dữ liệu null ở biến Budget
+# Remove 1 missing value at Budget
 data <- subset(data, is.na(data$Budget) == FALSE)
 ```
 
 
 ```{r}
-# sử dụng method cart
+# "mice" algorithm using "cart" method
 imp <- mice(data, method='cart', seed=123)
 data_cpt <- complete(imp)
 ```
 
+Compare mean before and after fill null, check whether their mean comes from same distribution or not.
 
+Hypothesis:
+H0: mu_before = mu_after
+H1: mu_before!= mu_after
+
+Choose anpha = 0.05
 
 ```{r}
+# t-test for Screens
 t.test(data$Screens, data_cpt$Screens)
 ```
-Với p-value = 0.6427, ta chấp nhận Ho: Trung bình Screens sau khi fill null và trước khi fill null là tới từ cùng 1 phân phối
+
+With p-value = 0.6427, There is not enough clue to reject H0 => Conclusion: The mean of Screens before filled null and after filled null is the same.
 
 ```{r}
+# t-test for Aggregate_Followers
 t.test(data$Aggregate_Followers, data_cpt$Aggregate_Followers)
 ```
-Với p-value = 0.7459, ta chấp nhận Ho: Trung bình Aggregate_Followers sau khi fill null và trước khi fill null là tới từ cùng 1 phân phối
+With p-value = 0.7459, There is not enough clue to reject H0 => Conclusion: The mean of Aggregate_Followers before filled null and after filled null is the same.
 
-Kiểm tra sự tương quan giữa các biến định lượng:
 
+## Check the correlative between quantitative variables:
 
 ```{r, fig.height=8}
 numeric_cols = c('Ratings', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
 corrplot(cor(data_cpt[,numeric_cols]), addCoef.col = 'black', method="color")
 ```
 
-Với ngưỡng 0.8, ta thấy có sự tương quan cao giữa biến Comments và biến Likes
+With threshold 0.8, there is the high correlation between Comments and Likes. We will handle it later
 
-# Phân bố của các biến định lượng
+# Check the distribution of quantitative variables:
 
 ```{r, fig.width=10}
 numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
@@ -166,7 +176,8 @@ for (i in numeric_cols){
 }
 ```
 
-Biến Gross có độ lệch cao, không có phân phối chuẩn nên ta sẽ sử dụng phương pháp Box-Cox để biến đổi biến Gross về gần với phân phối chuẩn. Ngoài ra, các biến có range giá trị khác biệt nhau nhiều nên ta sẽ scale khi đưa vào mô hình
+Gross is high skew (not normal). In linear regression model, we assume that dependence variable have normal shape, so that we will apply Box-Cox transformation for Gross, which will change Gross's distribution to approximatetly normal.
+Besides, the range of variables is different => need to be scaled.
 
 ```{r}
 bc_trans <- BoxCoxTrans(data_cpt$Gross)
@@ -199,7 +210,7 @@ qqline(data_cpt$Gross, col = "red")
 
 
 
-Scale dữ liệu
+Scale data (mean = 0 and std = 1):
 
 
 ```{r}
@@ -225,7 +236,7 @@ for (i in numeric_cols){
 ```
 
 
-# Kiểm tra dữ liệu outliers
+# Check outliers data
 
 ```{r, fig.width=10}
 numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
@@ -234,10 +245,12 @@ for (i in numeric_cols){
   boxplot(data_cpt[[i]], xlab=i)
 }
 ```
-Ngoại trừ biến Screens, dữ liệu xuất hiện outlier ở tất cả các biến còn lại.
 
 
-# Detect outlier for multivariate
+Except for Screens, outliers appear in all remaining variables.
+
+
+# Detect outlier for multivariate variables using mahalanobis distance
 
 
 ```{r, fig.width=8}
@@ -285,7 +298,7 @@ Group <- data_cpt[, c('Group')]
 l <- length(unique(Group))
 pairs(data_cpt[,numeric_cols], bg = hcl.colors(l, "Temps")[Group], col = hcl.colors(l, "Temps")[Group])
 ```
-Những điểm màu đỏ là những điểm được xác định là outlier và bị loại bỏ khỏi bộ dữ liệu, ta thấy ta đã loại được khá tốt các điểm outlier
+Note: Red color represents for outlier points and will be remove from dataset, green color represents for the normal point.
 
 
 ```{r}
@@ -305,14 +318,17 @@ nrow(data_cpt)
 nrow(data_new)
 ```
 
+Only 6% data is removed.
+
+
 ```{r}
 str(data_new)
 ```
 
  
- # Xây dựng mô hình
+ # Build model for prediction
  
- - Chia tập train, tập test
+ - Train test split:
 
  
 ```{r}
@@ -325,7 +341,7 @@ dim(train.data)
 dim(test.data)
 ```
 
-Xây dựng mô hình loại đa cộng tuyến trên các biến định lượng
+Build model to remove high correlation variables that cause "multicollinearity"
 
 
 ```{r}
@@ -341,7 +357,7 @@ barplot(vif_model_1, col = "bisque1", main = "Variance Inflation Factor (VIF)",
 data.frame(vif_model_1)
 ```
 
-Biến Likes có chỉ số VIF = 4.7 (~ 5) và là cao nhất nên ta loại bỏ khỏi mô hình
+The highest VIF is "Likes" (4.7, approximate 5) so that we will remove it from model
 
 
 ```{r}
@@ -356,10 +372,10 @@ barplot(vif_model_2, col = "bisque1", main = "Variance Inflation Factor (VIF)",
 data.frame(vif_model_2)
 ```
 
-Các biến còn lại đều có chỉ số VIF nhỏ hơn 5 nên ta giữ lại để xây dựng mô hình
-
+After remove "Likes", the remains variables have quite low VIF, we will keep it.
 
 ```{r}
+# Build linear regression model
 train.data <- train.data[, c("Ratings", "Gross", "Budget", "Screens", "Comments",
                              "Views", "Dislikes", "Aggregate_Followers", 'Genre', 
                              'Sequel', 'Sentiment')]
@@ -368,28 +384,32 @@ summary(full_model)
 ```
 
 ```{r}
+# choose the best model using step wise method
 step(full_model, direction = 'backward', trace = TRUE)
 ```
-Ta lựa chọn được mô hình tốt nhất (có AIC nhỏ nhất) là Gross ~ Ratings + Budget + Screens + Dislikes + Aggregate_Followers
+The best model (lowest AIC) is: Gross ~ Ratings + Budget + Screens + Dislikes + Aggregate_Followers
 
 ```{r}
 model_re = lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens', 'Aggregate_Followers', 'Dislikes')])
 summary(model_re)
 ```
 
+The "Dislike" seems to have no effect to the change of "Gross" (p-value = 0.10403 > 0.05). Let's build other model without "Dislike".
+Hypothesis:
+H0: Accept shorten model (excluded "Dislike")
+H1: Accept full model (included "Dislike")
+
 ```{r}
 model_re_2 <- lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens', 'Aggregate_Followers')])
 anova(model_re, model_re_2)
 ```
 
-Chấp nhận Ho tức là loại bỏ biến Dislikes  
+p-value = 0.104 > 0.05 so that we can not reject H0 => accept H0: Remove "Dislike"
 
 ```{r}
 summary(model_re_2)
 ```
-
-
-Dự báo
+Predict step:
 
 ```{r}
 # Make prediction
@@ -406,12 +426,14 @@ std
 ```
 
 ```{r}
+# inverse to value before scaling
 inverse_pred <- predictions*std + mu
 inverse_pred
 ```
 
 
 ```{r}
+# inverse to value before scaling
 inverse_actual <- test.data$Gross*std + mu
 ```
 
@@ -431,6 +453,7 @@ mean(inverse_pred)
 ```
 
 ```{r}
+# inverse to value before Box-Cox transformation
 bc_inv_pred <- exp(log(lambda * inverse_pred + 1) / lambda)
 bc_inv_act <- exp(log(lambda * inverse_actual + 1) / lambda)
 ```
@@ -461,15 +484,15 @@ df %>%  mutate(ID = 1:nrow(df)) %>%  ggplot(aes(ID)) +
 ```{r}
 data[68, 'Gross']
 ```
-
-```{r}
-3057695.7
-```
-
+Shapiro-test for error's distribution (check if its distribution is Normal distribution or not)
 
 ```{r}
 shapiro.test(residuals(model_re_2))
 ```
+Hypothesis:
+H0: e is normal distribution 
+H1: e is not normal distribution
+With p-value = 0.034, we will accept H0 if anpha < 0.03.
 
 ```{r}
 plot(model_re_2)
