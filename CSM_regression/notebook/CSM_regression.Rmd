@@ -1,0 +1,482 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+```{r}
+library("readxl")
+library(corrplot)
+library("dplyr")
+library(mice, warn.conflicts=FALSE)
+library(car)
+library(caret)
+library(dplyr)
+library(cleandata)
+```
+
+
+```{r}
+# Load the data
+data <- read_excel('./CSM.xlsx')
+head(data)
+```
+
+# EDA dữ liệu
+
+```{r}
+# Rename columns
+colnames(data) = c("Movie", "Year", "Ratings", "Genre", "Gross", "Budget", "Screens", "Sequel", "Sentiment",
+                   "Views", "Likes", "Dislikes", "Comments", "Aggregate_Followers")
+```
+
+
+```{r}
+# Kiểm tra data shape
+nrow(data)
+length(colnames(data))
+```
+Dữ liệu có 231 dòng và 14 cột
+
+```{r}
+# Kiểm tra duplicate
+nrow(unique(data))
+```
+
+Dữ liệu không bị duplicate
+
+
+```{r}
+# Kiểm tra data type
+str(data)
+```
+Nhận xét: \
+Bộ dữ liệu bao gồm cả những biến định tính và định lượng, các biến định tính là: Genre, Sequel, Sentiment
+
+Biến Movie và biến Year không có ý nghĩa trong việc xây dựng model dự báo nên ta loại 2 biến này khỏi bộ dữ liệu
+
+```{r}
+data <- data[, c('Ratings', 'Genre', 'Gross', 'Budget', 'Screens', 'Sequel', 'Sentiment', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')]
+```
+
+Ta đi encode các biến định tính
+
+```{r}
+unique(data$Genre)
+```
+
+```{r}
+unique(data$Sequel)
+```
+
+```{r}
+unique(data$Sentiment)
+```
+
+Biến Sequel (phần phim) và biến Sentiment (ý kiến khán giả) là những biến có thứ tự nên ta lựa chọn phương pháp Ordinal Encoding để xử lý
+
+```{r}
+data$Genre = relevel(as.factor(data$Genre), ref=1)
+```
+
+```{r}
+contrasts(data$Genre)
+```
+
+```{r}
+data$Sentiment <- as.ordered(data$Sentiment)
+data$Sequel <- as.ordered(data$Sequel)
+```
+
+
+# Kiểm tra giá trị null
+
+```{r}
+# Kiểm tra giá trị null
+colSums(is.na(data))/nrow(data)
+```
+
+Biến Aggregate_Followers có 15% dữ liệu bị null, biến Budget có 0.43% dữ liệu bị null và biến Screens có 4.3% dữ liệu null
+
+## Missing data pattern
+
+```{r, fig.height=9, fig.width=22}
+md.pattern(data)
+```
+
+Nhận xét:
+- Có 187 (~80.95%) quan sát không bị missing data ở bất cứ cột nào\
+- Có 33 (~14.28%) quan sát chỉ bị missing data ở cột Aggregate Followers\
+- Có 8 (~3.46%) quan sát chỉ bị missing data ở cột Screens\
+- Có 2 (~0.86%) quan sát bị missing data ở cả cột Aggregate_Followers và cột Screens\
+- Có 1 (~0.43%) quan sát chỉ bị missing data ở cột Budget\
+
+Trong những quan sát bị missing data, 95% là bị missing data ở 1 cột.
+
+## Đánh giá sự liên kết giữa các biến
+
+```{r}
+flux(data)
+```
+
+```{r}
+fluxplot(data, xlim=c(0,1), ylim=c(0,1),eqscplot = FALSE)
+```
+
+Ta thấy biến Aggregate_Followers có chỉ số outflux đều nhỏ cho thấy các giá trị được quan sát của biến này không có nhiều công dụng trong việc suy đoán giá trị missing của các biến còn lại và biến này có Influx nhỏ cho thấy các giá trị null của biến này không connect nhiều với các giá trị được quan sát của các biến còn lại.
+
+
+Biến Budget có tỷ lệ null rất nhỏ (chỉ có 1 giá trị null), ta lựa chọn bỏ đi 1 giá trị null ở biến Budget và fill null cho 2 biến Screens và Aggregate_Followers. Để điền giá trị cho các giá trị bị null, ta sử dụng thuật toán mice
+
+```{r}
+# Loại đi dữ liệu null ở biến Budget
+data <- subset(data, is.na(data$Budget) == FALSE)
+```
+
+
+```{r}
+# sử dụng method cart
+imp <- mice(data, method='cart', seed=123)
+data_cpt <- complete(imp)
+data_cpt
+```
+
+```{r}
+t.test(data$Screens, data_cpt$Screens)
+```
+Với p-value = 0.6427, ta chấp nhận Ho: Trung bình Screens sau khi fill null và trước khi fill null là tới từ cùng 1 phân phối
+
+```{r}
+t.test(data$Aggregate_Followers, data_cpt$Aggregate_Followers)
+```
+Với p-value = 0.7459, ta chấp nhận Ho: Trung bình Aggregate_Followers sau khi fill null và trước khi fill null là tới từ cùng 1 phân phối
+
+Kiểm tra sự tương quan giữa các biến định lượng:
+
+
+```{r, fig.height=8}
+numeric_cols = c('Ratings', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+corrplot(cor(data_cpt[,numeric_cols]), addCoef.col = 'black', method="color")
+```
+
+Với ngưỡng 0.8, ta thấy có sự tương quan cao giữa biến Comments và biến Likes
+
+# Phân bố của các biến định lượng
+
+```{r, fig.width=10}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+par(mfrow=c(2, 5))
+for (i in numeric_cols){
+  hist(data_cpt[[i]], main=i)
+}
+```
+
+Biến Gross có độ lệch cao, không có phân phối chuẩn nên ta sẽ sử dụng phương pháp Box-Cox để biến đổi biến Gross về gần với phân phối chuẩn. Ngoài ra, các biến có range giá trị khác biệt nhau nhiều nên ta sẽ scale khi đưa vào mô hình
+
+```{r}
+bc_trans <- BoxCoxTrans(data_cpt$Gross)
+data_cpt$Gross <- predict(bc_trans, data_cpt$Gross)
+```
+
+```{r}
+shapiro.test(data_cpt$Gross)
+```
+
+
+```{r}
+lambda <- bc_trans$lambda
+lambda
+```
+
+
+```{r}
+par(mfrow=c(1, 2))
+ggplot(data.frame(x = data_cpt$Gross), aes(x)) +
+  geom_histogram(binwidth = 100, color = "black", fill = "lightblue") +
+  ggtitle("Histogram of Box-Cox Transformed Data")
+```
+
+
+```{r}
+qqnorm(data_cpt$Gross)
+qqline(data_cpt$Gross, col = "red")
+```
+
+
+
+Scale dữ liệu
+
+
+```{r}
+std <- sd(data_cpt$Gross)
+mu <- mean(data_cpt$Gross)
+```
+
+
+```{r}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+for (i in numeric_cols){
+  data_cpt[[i]] <- scale(data_cpt[[i]])
+}
+```
+
+
+```{r, fig.width=10}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+par(mfrow=c(2, 5))
+for (i in numeric_cols){
+  hist(data_cpt[[i]], main=i)
+}
+```
+
+
+# Kiểm tra dữ liệu outliers
+
+```{r, fig.width=10}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+par(mfrow=c(2, 5))
+for (i in numeric_cols){
+  boxplot(data_cpt[[i]], xlab=i)
+}
+```
+Ngoại trừ biến Screens, dữ liệu xuất hiện outlier ở tất cả các biến còn lại.
+
+
+# Detect outlier for multivariate
+
+
+```{r, fig.width=8}
+pairs(data_cpt[,numeric_cols])
+```
+
+```{r}
+MD <- mahalanobis(data_cpt[, numeric_cols], colMeans(data_cpt[, numeric_cols]), cov(data_cpt[, numeric_cols]), inverted=TRUE)
+```
+
+```{r}
+data_cpt$MD <- MD
+```
+
+```{r}
+boxplot(MD, main='Boxplot of Mahalanobis distance')
+```
+
+
+```{r}
+quartiles <- quantile(data_cpt$MD, probs=c(.25, .75))
+IQR <- IQR(data_cpt$MD)
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR
+```
+
+
+```{r}
+exclude_data <- subset(data_cpt, data_cpt$MD <= Lower | data_cpt$MD >= Upper)
+mean(exclude_data$MD)
+```
+
+
+```{r}
+data_cpt <- data_cpt %>% mutate(Group = case_when(MD > Lower & MD < Upper ~ 1,
+                                       MD <= Lower | MD >= Upper ~ 2))
+data_cpt
+```
+
+
+
+```{r, fig.width=8}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+Group <- data_cpt[, c('Group')]
+l <- length(unique(Group))
+pairs(data_cpt[,numeric_cols], bg = hcl.colors(l, "Temps")[Group], col = hcl.colors(l, "Temps")[Group])
+```
+Những điểm màu đỏ là những điểm được xác định là outlier và bị loại bỏ khỏi bộ dữ liệu, ta thấy ta đã loại được khá tốt các điểm outlier
+
+
+```{r}
+data_new <- subset(data_cpt, data_cpt$MD > Lower & data_cpt$MD < Upper)
+```
+
+```{r, fig.width=10}
+numeric_cols = c('Ratings', 'Gross', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', 'Comments', 'Aggregate_Followers')
+par(mfrow=c(2, 5))
+for (i in numeric_cols){
+  boxplot(data_new[[i]], xlab=i)
+}
+```
+
+```{r}
+nrow(data_cpt)
+nrow(data_new)
+```
+
+```{r}
+str(data_new)
+```
+
+ 
+ # Xây dựng mô hình
+ 
+ - Chia tập train, tập test
+
+ 
+```{r}
+# Split train-test data
+set.seed(123)
+training.samples <- data_new$Gross  %>%  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- data_new[training.samples, ]
+test.data <- data_new[-training.samples, ]
+dim(train.data)
+dim(test.data)
+```
+
+Xây dựng mô hình loại đa cộng tuyến trên các biến định lượng
+
+
+```{r}
+df <- train.data[,c("Ratings", "Gross", "Budget", "Screens", "Views", "Likes",
+                    "Dislikes", "Comments", "Aggregate_Followers")]
+model_1 <- lm(Gross~., data=df)
+vif_model_1 <- vif(model_1)
+barplot(vif_model_1, col = "bisque1", main = "Variance Inflation Factor (VIF)", 
+        las = 2, cex.names = 1)
+```
+ 
+```{r}
+data.frame(vif_model_1)
+```
+
+Biến Likes có chỉ số VIF = 4.7 (~ 5) và là cao nhất nên ta loại bỏ khỏi mô hình
+
+
+```{r}
+model_2 <- lm(Gross~., data=df[, c("Ratings", "Gross", "Budget", "Screens", 
+                                   "Comments", "Views", "Dislikes", "Aggregate_Followers")])
+vif_model_2 <- vif(model_2)
+barplot(vif_model_2, col = "bisque1", main = "Variance Inflation Factor (VIF)", 
+        las = 2, cex.names = 1)
+```
+
+```{r}
+data.frame(vif_model_2)
+```
+
+Các biến còn lại đều có chỉ số VIF nhỏ hơn 5 nên ta giữ lại để xây dựng mô hình
+
+
+```{r}
+train.data <- train.data[, c("Ratings", "Gross", "Budget", "Screens", "Comments",
+                             "Views", "Dislikes", "Aggregate_Followers", 'Genre', 
+                             'Sequel', 'Sentiment')]
+full_model <- lm(Gross~., data=train.data)
+summary(full_model)
+```
+
+```{r}
+step(full_model, direction = 'backward', trace = TRUE)
+```
+Ta lựa chọn được mô hình tốt nhất (có AIC nhỏ nhất) là Gross ~ Ratings + Budget + Screens + Dislikes + Aggregate_Followers
+
+```{r}
+model_re = lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens', 'Aggregate_Followers', 'Dislikes')])
+summary(model_re)
+```
+
+```{r}
+model_re_2 <- lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens', 'Aggregate_Followers')])
+anova(model_re, model_re_2)
+```
+
+Chấp nhận Ho tức là loại bỏ biến Dislikes  
+
+```{r}
+summary(model_re_2)
+```
+
+
+Dự báo
+
+```{r}
+# Make prediction
+predictions <- model_re_2 %>% predict(test.data)
+# Model performance
+# (a) Prediction error, RMSE
+rmse = RMSE(predictions, test.data$Gross)
+rmse
+```
+
+```{r}
+mu
+std
+```
+
+```{r}
+inverse_pred <- predictions*std + mu
+inverse_pred
+```
+
+
+```{r}
+inverse_actual <- test.data$Gross*std + mu
+```
+
+
+```{r}
+rmse = RMSE(inverse_pred, inverse_actual)
+rmse
+```
+
+
+```{r}
+mean(inverse_actual)
+```
+
+```{r}
+mean(inverse_pred)
+```
+
+```{r}
+bc_inv_pred <- exp(log(lambda * inverse_pred + 1) / lambda)
+bc_inv_act <- exp(log(lambda * inverse_actual + 1) / lambda)
+```
+
+
+```{r}
+RMSE(bc_inv_pred, bc_inv_act)
+```
+
+```{r}
+mean(bc_inv_act)
+```
+
+
+```{r}
+df <- data.frame(bc_inv_pred, bc_inv_act)
+df
+```
+
+```{r}
+df %>%  mutate(ID = 1:nrow(df)) %>%  ggplot(aes(ID)) +   
+  geom_line(aes(y = bc_inv_pred, colour = "inverse_prediction")) + 
+  geom_line(aes(y = bc_inv_act, colour = "inverse_actual"))
+```
+
+
+
+```{r}
+data[68, 'Gross']
+```
+
+```{r}
+3057695.7
+```
+
+
+```{r}
+shapiro.test(residuals(model_re_2))
+```
+
+```{r}
+plot(model_re_2)
+```
+
