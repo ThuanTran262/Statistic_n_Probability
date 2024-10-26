@@ -56,9 +56,9 @@ str(data)
 ```
 Comment:\
 
-The dataset contains both quantitative and qualitative variables:
-The qualitative variables: Genre, Sequel, Sentiment
-The quantitative variables: The remains
+The dataset contains both quantitative and qualitative variables:\
+The qualitative variables: Genre, Sequel, Sentiment\
+The quantitative variables: The remains\
 
 We will exclude "Movie" and "Year" from model because they do not contribute to prediction.
 
@@ -119,7 +119,7 @@ Comment:
 - There are 2 (~0.86%) observations that have missing values at both Aggregate_Followers and cột Screens\
 - There is only 1 (~0.43%) observation that have missing value at only column Budget\
 
-Most data is missed in only 1 column.
+Most data is missed in only 1 column.\
 
 The null percentage of Budget is very small (only 0.43%) so that we will remove this record from the dataset. For the Screens and Aggregate_Followers, we will fill missing data using "mice" algorithm
 
@@ -135,11 +135,11 @@ imp <- mice(data, method='cart', seed=123)
 data_cpt <- complete(imp)
 ```
 
-Compare mean before and after fill null, check whether their mean comes from same distribution or not.
+Compare mean before and after fill null, check whether their mean comes from same distribution or not.\
 
-Hypothesis:
-H0: mu_before = mu_after
-H1: mu_before!= mu_after
+Hypothesis:\
+H0: mu_before = mu_after\
+H1: mu_before!= mu_after\
 
 Choose anpha = 0.05
 
@@ -164,7 +164,7 @@ numeric_cols = c('Ratings', 'Budget', 'Screens', 'Views', 'Likes', 'Dislikes', '
 corrplot(cor(data_cpt[,numeric_cols]), addCoef.col = 'black', method="color")
 ```
 
-With threshold 0.8, there is the high correlation between Comments and Likes. We will handle it later
+With threshold 0.8, there is the high correlation between Comments and Likes. We will handle it later\
 
 # Check the distribution of quantitative variables:
 
@@ -176,7 +176,7 @@ for (i in numeric_cols){
 }
 ```
 
-Gross is high skew (not normal). In linear regression model, we assume that dependence variable have normal shape, so that we will apply Box-Cox transformation for Gross, which will change Gross's distribution to approximatetly normal.
+Gross is high skew (not normal). In linear regression model, we assume that dependence variable have normal shape, so that we will apply Box-Cox transformation for Gross, which will change Gross's distribution to approximately normal.\
 Besides, the range of variables is different => need to be scaled.
 
 ```{r}
@@ -247,7 +247,7 @@ for (i in numeric_cols){
 ```
 
 
-Except for Screens, outliers appear in all remaining variables.
+Except for Screens, outliers appear in all remaining variables.\
 
 
 # Detect outlier for multivariate variables using mahalanobis distance
@@ -394,10 +394,10 @@ model_re = lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens
 summary(model_re)
 ```
 
-The "Dislike" seems to have no effect to the change of "Gross" (p-value = 0.10403 > 0.05). Let's build other model without "Dislike".
-Hypothesis:
-H0: Accept shorten model (excluded "Dislike")
-H1: Accept full model (included "Dislike")
+The "Dislike" seems to have no effect to the change of "Gross" (p-value = 0.10403 > 0.05). Let's build other model without "Dislike".\
+Hypothesis:\
+H0: Accept shorten model (excluded "Dislike")\
+H1: Accept full model (included "Dislike")\
 
 ```{r}
 model_re_2 <- lm(Gross~., data=train.data[,c('Gross', 'Ratings', 'Budget', 'Screens', 'Aggregate_Followers')])
@@ -489,10 +489,10 @@ Shapiro-test for error's distribution (check if its distribution is Normal distr
 ```{r}
 shapiro.test(residuals(model_re_2))
 ```
-Hypothesis:
-H0: e is normal distribution 
-H1: e is not normal distribution
-With p-value = 0.034, we will accept H0 if anpha < 0.03.
+Hypothesis:\
+H0: e is normal distribution\ 
+H1: e is not normal distribution\
+With p-value = 0.034, we will accept H0 if anpha < 0.03.\
 
 ```{r}
 plot(model_re_2)
