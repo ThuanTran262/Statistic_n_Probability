@@ -1,0 +1,110 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(boot)
+library(ggplot2)
+library(stats) #Anova()
+```
+
+```{r}
+data <- read.csv('Original_data_student_exam_score.csv')
+head(data)
+```
+
+Ta sẽ kiểm tra giới tính (Gender) và ParentEduc có ảnh hưởng tới điểm trung bình 3 môn của học sinh hay không
+
+```{r}
+data <- data[, c('Gender', 'ParentEduc', 'MathScore', 'ReadingScore', 'WritingScore')]
+```
+
+
+# EDA
+
+```{r}
+str(data)
+```
+
+
+```{r}
+# check data shape
+nrow(data)
+length(data)
+```
+
+```{r}
+# check null
+colSums(is.na(data))/nrow(data)
+```
+
+Không có dữ liệu bị null
+
+```{r}
+data$Avg_Score <- (data$MathScore + data$ReadingScore + data$WritingScore)/3
+```
+
+```{r}
+boxplot(data$Avg_Score)
+```
+
+
+```{r}
+par(mfrow = c(1, 4))
+hist(data$Avg_Score, main='Histogram of Avg_Score')
+hist(data$MathScore, main='Histogram of MathScore')
+hist(data$ReadingScore, main='Histogram of ReadingScore')
+hist(data$WritingScore, main='Histogram of WritingScore')
+```
+
+Ta sẽ không loại outlier cho bộ dữ liệu
+
+```{r}
+boxplot(data$Avg_Score ~ data$Gender, main='Avg_Score in group male and female')
+```
+
+
+```{r, fig.width=12}
+boxplot(data$Avg_Score ~ data$ParentEduc, main='Avg_Score in groups')
+```
+
+
+```{r}
+lm1 <- lm(Avg_Score~Gender, data=data) 
+anova(lm1)
+```
+Do p-value < 0.05 nên ta bác bỏ giả thuyết Ho: Trung bình giữa các nhóm Gender là như nhau và chấp nhận giả thuyết H1: có ít nhất 1 cặp có trung bình khác nhau.
+
+```{r}
+lm2 <- lm(Avg_Score~ParentEduc, data=data) 
+anova(lm2)
+```
+Do p-value < 0.05 nên ta bác bỏ giả thuyết Ho: Trung bình giữa các nhóm ParentEduc là như nhau và chấp nhận giả thuyết H1: có ít nhất 1 cặp có trung bình khác nhau.
+
+Ta đi xây dựng mô hình anova 2 nhân tố
+
+```{r}
+# Mô hình nhân
+data_aov <- data[, c('Gender', 'ParentEduc', 'Avg_Score')]
+m1 <- aov(Avg_Score ~ Gender*ParentEduc, data = data_aov)
+summary(m1)
+```
+Với mức ý nghĩa anpha = 0.05 thì ta thấy có sự tương tác giữa các cặp 2 biến Gender và ParentEduc ảnh hưởng tới trung bình điểm số của học sinh
+
+
+```{r}
+TukeyHSD(m1)
+```
+```{r}
+# search 1 hàm khác sử dụng được trên data sample lớn
+shapiro.test(residuals(m1))
+```
+```{r}
+library(nortest)
+ad.test(residuals(m1))
+```
+
+Do p-value = 2.2e-16 < 0.05 nên ta bác bỏ giả thuyết H0 hay sai số ngẫu nhiên của mô hình không tuân theo luật phân bố chuẩn.

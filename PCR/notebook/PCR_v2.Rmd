@@ -1,0 +1,323 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(corrplot)
+library(caret)
+library(dplyr)
+library(car)
+```
+
+
+```{r}
+data <- read.csv('CarPrice_Assignment.csv')
+head(data)
+```
+
+```{r}
+str(data)
+```
+Bộ data bao gồm cả các biến categorical đó là: 
+car_ID, symboling, CarName, fueltype, aspiration,  doornumber, carbody, drivewheel, enginelocation, enginetype, cylindernumber, fuelsystem.
+
+Do ta xử dụng mô hình PCR nên ta sẽ lựa chọn xây dựng trên các biến định lượng
+
+```{r}
+data_num <- subset(data, select = -c(car_ID, symboling, CarName, fueltype, aspiration,  doornumber, carbody, drivewheel, enginelocation, enginetype, cylindernumber, fuelsystem))
+data_num
+```
+
+```{r}
+colSums(is.na(data_num))
+```
+
+Không có dữ liệu null
+
+```{r, fig.width=15}
+par(mfrow=c(3, 5))
+cols <- colnames(data_num)
+for (c in cols){
+  boxplot(data_num[[c]], horizontal = TRUE, xlab=c)
+}
+```
+Dữ liệu có outlier
+
+```{r, fig.width=15}
+par(mfrow=c(3, 5))
+cols <- colnames(data_num)
+for (c in cols){
+  hist(data_num[[c]], main=c)
+}
+```
+Dữ liệu có range giá trị khác nhau giữa các biến nên ta scale, sau đó loại outlier
+
+
+```{r}
+hist(data_num$price)
+```
+
+```{r}
+min(data$price)
+```
+
+
+```{r}
+bc_trans <- BoxCoxTrans(data_num$price)
+data_num$price <- predict(bc_trans, data_num$price)
+```
+
+```{r}
+lamda <- bc_trans$lambda
+lamda
+```
+
+
+```{r}
+hist(data_num$price)
+```
+
+```{r}
+std <- sd(data_num$price)
+mu <- mean(data_num$price)
+```
+
+```{r}
+mu
+```
+
+```{r}
+std
+```
+
+```{r}
+for (i in colnames(data_num)){
+  data_num[[i]] <- scale(data_num[[i]])
+}
+```
+
+
+# Loại outliers
+
+```{r}
+MD <- mahalanobis(data_num, colMeans(data_num), cov(data_num), inverted = TRUE)
+```
+
+```{r}
+data_num$MD <- MD
+```
+
+```{r}
+boxplot(MD)
+```
+
+```{r}
+quartiles <- quantile(data_num$MD, probs=c(.25, .75))
+IQR <- IQR(data_num$MD)
+Lower <- quartiles[1] - 3*IQR
+Upper <- quartiles[2] + 3*IQR
+```
+
+```{r}
+boxplot(subset(MD, MD>Lower& MD<Upper))
+```
+
+
+```{r}
+data_num <- data_num %>% mutate(Group = case_when(MD > Lower & MD < Upper ~ 1,
+                                       MD <= Lower | MD >= Upper ~ 2))
+data_num
+```
+
+```{r}
+colnames(data_num)
+```
+
+
+```{r, fig.width=15}
+numeric_cols = c("wheelbase", "carlength", "carwidth", "carheight", "curbweight", "enginesize", "boreratio", "stroke",  "compressionratio", "horsepower", "peakrpm", "citympg", "highwaympg" , "price")
+Group <- data_num[, c('Group')]
+l <- length(unique(Group))
+pairs(data_num[,numeric_cols], bg = hcl.colors(l, "Temps")[Group], col = hcl.colors(l, "Temps")[Group])
+```
+
+```{r}
+data_new <- subset(data_num, data_num$MD > Lower & data_num$MD < Upper, select  = -c(MD, Group))
+```
+
+```{r}
+nrow(data_new)
+nrow(data_num)
+```
+
+
+```{r, fig.width=15}
+par(mfrow=c(3, 5))
+cols <- colnames(data_new)
+for (c in cols){
+  boxplot(data_new[[c]], horizontal = TRUE, xlab=c)
+}
+```
+
+
+```{r, fig.width=15}
+corrplot(cor(data_new), addCoef.col = 'black', method="color")
+```
+
+Ta thấy dữ liệu có 1 số cặp biến có tương quan cao
+
+Xây dựng mô hình PCR
+
+# Giảm chiều dữ liệu bằng phương pháp PCA trên biến độc lập
+
+```{r}
+X <- subset(data_new, select=-c(price))
+y <- data_new['price']
+```
+
+```{r}
+# PCA
+pc <- princomp(X, fix_sign =TRUE)
+summary(pc)
+```
+
+```{r}
+# scree plot
+screeplot(pc, type='line')
+```
+
+```{r}
+loadings(pc)
+```
+
+```{r}
+ biplot(pc, cex = 0.75)
+```
+
+```{r}
+laligaPCA <- data.frame("price" = y$price, pc$scores)
+head(laligaPCA)
+```
+
+```{r}
+corrplot(cor(laligaPCA), addCoef.col = 'black', method="color")
+```
+
+
+```{r}
+# Split train-test data
+set.seed(123)
+training.samples <- laligaPCA$price  %>%  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- laligaPCA[training.samples, ]
+test.data <- laligaPCA[-training.samples, ]
+dim(train.data)
+dim(test.data)
+```
+
+
+```{r}
+modPCA3 <- lm(price ~ Comp.1 + Comp.2 + Comp.3 + Comp.4, data = train.data) 
+summary(modPCA3)
+```
+```{r}
+modPCA4 <- lm(price ~ Comp.1 + Comp.2 + Comp.3, data = train.data) 
+summary(modPCA4)
+```
+```{r}
+anova(modPCA3, modPCA4)
+```
+
+Chấp nhận mô hình rút gọn
+
+
+
+```{r}
+# dự báo
+# predictions <- modPCA3 %>% predict(test.data)
+predictions <- predict(modPCA4, newdata = test.data, interval = "prediction")
+rmse = RMSE(predictions, test.data$price)
+rmse
+```
+
+```{r}
+df_pred <- as.data.frame(predictions)
+df_pred
+```
+
+```{r}
+actual <- test.data$price*std + mu
+```
+
+
+```{r}
+RMSE(pred, actual)
+```
+
+```{r}
+inverse_actual <- exp(log(lamda * actual + 1) / lamda)
+inverse_actual
+```
+
+```{r}
+# inverse scale
+for (i in colnames(df_pred)){
+  df_pred[[i]] <- df_pred[[i]]*std + mu
+}
+# inverse boxcox
+for (i in colnames(df_pred)){
+  df_pred[[i]] <- exp(log(lamda * df_pred[[i]] + 1) / lamda)
+}
+```
+
+
+```{r}
+df_pred <- cbind(df_pred, as.data.frame(inverse_actual))
+```
+
+```{r}
+df_pred
+```
+
+```{r}
+max(df_pred$upr)
+```
+
+```{r}
+RMSE(inverse_actual, df_pred[['fit']])
+```
+
+
+```{r}
+MAE(inverse_actual, df_pred[['fit']])
+```
+
+
+```{r, fig.width=10}
+df_pred %>%  mutate(ID = 1:nrow(df_pred)) %>%  ggplot(aes(ID)) +   
+  geom_line(aes(y = fit, colour = "inverse_prediction")) + 
+  geom_line(aes(y = inverse_actual, colour = "inverse_actual"))
+  # geom_line(aes(y = lwr, linetype = 'dashed')) +
+  # geom_line(aes(y = upr, linetype = 'dashed'))
+  # scale_color_manual(values=c('#999999','#E69F00', '#888888', '#888888'))+  theme(legend.title =element_blank())
+```
+
+
+```{r}
+shapiro.test(modPCA3$residuals)
+```
+
+```{r}
+plot(modPCA4)
+```
+
+
+Với mức ý nghĩa anpha = 0.01 thì ta chấp nhận Ho: sai số ngẫu nhiên tuân theo phân phối chuẩn.
+
+# Convert về giá trị ban đầu
+# Scale dữ liệu để xem sự khác biệt
+

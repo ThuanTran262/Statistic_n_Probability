@@ -1,0 +1,63 @@
+---
+title: "BÀI 2"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r}
+library(boot)
+```
+
+```{r}
+data = read.csv('Bangladesh.csv')
+head(data)
+```
+
+```{r}
+# Loại bỏ giá trị null
+data_chlorine <- na.omit(data$Chlorine)
+```
+
+```{r}
+summary(data_chlorine)
+```
+```{r}
+# Giá trị trung bình bị cắt bớt ở mức 15%
+mean(data_chlorine, trim = 0.15)
+```
+```{r}
+trim_mean_boot_fun <- function(data, ind){
+  n <- length(data)
+  data <- data[ind]
+  mu_est <- mean(data, trim=0.15)
+  # uoc luong cho variance cua trimmed mean
+  mu_boot2 = numeric(n)
+  for (i in 1:n){
+    id <- sample(1:n, 200, replace = TRUE)
+    data_boot <- data[id]
+    mu_boot2[i] <- mean(data_boot, trim=0.15)
+  }
+   mu_var <- var(mu_boot2)
+  return(c(mu_est, mu_var))
+}
+```
+
+```{r}
+out_boot = boot(data=data_chlorine, statistic = trim_mean_boot_fun, R=1000, sim="ordinary", set.seed(123))
+out_boot
+```
+- Khoảng tin cậy bootstarp 95%:
+```{r}
+boot.ci(out_boot, conf = 0.95, type='all')
+```
+-   Khoảng tin cậy bootstrap Normal 95% cho giá trị trung bình của chlorine là: (17.41, 28.66 )
+-   Khoảng tin cậy bootstrap Basic 95% cho giá trị trung bình của chlorine là: (17.03, 27.95 )
+-   Khoảng tin cậy bootstrap Percentile 95% cho giá trị trung bình của chlorine là: (18.57, 29.49 )
+-   Khoảng tin cậy bootstrap Studentized 95% cho giá trị trung bình của chlorine là: (18.45, 28.97 ) 
+SO với trung bình thông thường được tính ở bài tập 1, ta thấy giá trị trung bình được ước lượng bởi trimmed mean nhỏ hơn rất nhiều (giá trị trung bình ở BT 1 được ước lượng bằng 78.08401, trong khi giá trị trung bình được ước lượng bằng trimmed mean là 23.25926). Khoảng tin cậy cho ước lượng trimmed mean cũng được thu hẹp lại.
+
+Điều này có thể được giải thích bởi vì dữ liệu chlorine có nhiều giá trị outlier ở phía bên phải khiến cho giá trị trung bình bị kéo lên, sau khi được loại bỏ 15% data ở 2 phía, số lượng outlier giảm đi và giá trị trung bình được thu nhỏ lại.

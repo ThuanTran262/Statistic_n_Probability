@@ -1,0 +1,105 @@
+---
+title: "BÀI 1"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r}
+library(ggplot2)
+library(boot)
+```
+
+```{r}
+data = read.csv('Bangladesh.csv')
+head(data)
+```
+
+# a) EDA
+
+```{r}
+str(data)
+```
+
+```{r}
+summary(data$Chlorine)
+```
+
+Nhận xét:
+
+-   Dữ liệu chứa 2 giá trị null ở cột Chlorine với số lượng na không nhiều, ta loại bỏ đi những dòng có dữ liệu na:
+
+```{r}
+data_chlorine <- na.omit(data$Chlorine)
+```
+
+-   Dữ liệu có thể có outlier, để nhìn trực quan hơn, ta sử dụng box plot để xem phân bố của dữ liệu
+
+```{r}
+boxplot(data_chlorine, horizontal = TRUE)
+```
+
+Tính tỷ trọng outlier
+
+```{r}
+# xác định mức outlier
+quartiles <- quantile(data_chlorine, probs=c(.25, .75))
+IQR <- IQR(data_chlorine)
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR
+
+# tính tỷ lệ outlier
+trunc_data <- subset(data_chlorine, data_chlorine > Lower & data_chlorine < Upper)
+outlier_rate <- (length(data_chlorine) - length(trunc_data))*100/length(data_chlorine)
+print(paste0('outlier rate of Chlorine: ', outlier_rate))
+```
+
+-   Nhìn vào biểu đồ boxplot và tỷ lệ outlier, ta thấy dữ liệu có nhiều điểm outlier.
+
+-   Xem phân bố của dữ liệu
+
+```{r}
+hist(data_chlorine)
+```
+
+Dữ liệu không có phân phối chuẩn, lệch nhiều về phía trái
+
+# b) Bootstrap giá trị trung bình
+
+```{r}
+mean_boot_fun <- function(data, ind){
+  n <- length(data)
+  data <- data[ind]
+  mu_est <- mean(data)
+  mu_var <- var(data)/n
+  return(c(mu_est, mu_var))
+}
+```
+
+```{r}
+out_boot = boot(data=data_chlorine, statistic = mean_boot_fun, R=1000, sim="ordinary", set.seed(123))
+out_boot
+```
+
+-   Bootstrap cho ra ước lượng kết quả trung bình là 78.08401, sai số chuẩn là 12.41494 
+# c) KTC
+
+```{r}
+boot.ci(boot.out = out_boot, conf = 0.95, type = 'all')
+```
+
+-   Khoảng tin cậy bootstrap Normal 95% cho giá trị trung bình của chlorine là: ( 54.28, 102.93 )
+-   Khoảng tin cậy bootstrap Basic 95% cho giá trị trung bình của chlorine là: ( 52.17, 101.50 )
+-   Khoảng tin cậy bootstrap Percentile 95% cho giá trị trung bình của chlorine là: ( 54.67, 104.00 )
+-   Khoảng tin cậy bootstrap Studentized 95% cho giá trị trung bình của chlorine là: ( 57.71, 112.90 ) 
+# d) Bootstrap của độ lệch
+
+```{r}
+# độ chệch của bootstrap
+print(paste0('Độ chệch của bootstrap là: ', 78.08401 - mean(data_chlorine)))
+# Tỷ lệ giữa độ chệch và sai số chuẩn
+print(paste0('Tỷ lệ giữa độ chệch và sai số chuẩn: ', (78.08401 - mean(data_chlorine))/12.41494))
+```

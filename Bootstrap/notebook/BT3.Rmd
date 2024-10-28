@@ -1,0 +1,87 @@
+---
+title: "BÀI 3"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+```{r}
+library(boot)
+```
+
+```{r}
+data <- read.csv('FishMercury.csv')
+head(data)
+```
+```{r}
+# check số dòng dữ liệu
+nrow(data)
+```
+```{r}
+summary(data)
+```
+# a) Biểu đồ boxplot
+```{r}
+boxplot(data$Mercury, horizontal = TRUE)
+```
+Ta thấy dữ liệu chứa 1 điểm outlier
+
+# b)
+```{r}
+mean_boot_fun <- function(data, ind){
+  n <- length(data)
+  data <- data[ind]
+  mu_est <- mean(data)
+  mu_var <- var(data)/n
+  return(c(mu_est, mu_var))
+}
+```
+
+```{r}
+out_boot = boot(data=data$Mercury, statistic = mean_boot_fun, R=1000, sim="ordinary", set.seed(123))
+out_boot
+```
+- Ước lượng cho trung bình của quá trình bootstrap là: 0.181866667
+- Sai số chuẩn: 0.058502917
+
+- Tìm các khoảng tin cậy 95%
+```{r}
+boot.ci(boot.out = out_boot, conf = 0.95, type = 'all')
+```
+-   Khoảng tin cậy bootstrap Normal 95% cho giá trị trung bình của Mercury là: ( 0.0658,  0.2951 )
+-   Khoảng tin cậy bootstrap Basic 95% cho giá trị trung bình của Mercury là: ( 0.0570,  0.2514 )
+-   Khoảng tin cậy bootstrap Percentile 95% cho giá trị trung bình của Mercury là: ( 0.1123,  0.3068 )
+-   Khoảng tin cậy bootstrap Studentized 95% cho giá trị trung bình của Mercury là: ( 0.1063,  0.7242 ) 
+
+# c) 
+```{r}
+# xác định mức outlier
+quartiles <- quantile(data$Mercury, probs=c(.25, .75))
+IQR <- IQR(data$Mercury)
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR
+new_data <- subset(data, data$Mercury > Lower & data$Mercury < Upper)
+```
+
+```{r}
+boxplot(new_data$Mercury, horizontal = TRUE)
+```
+Dữ liệu mới đã không còn outlier
+
+```{r}
+# check số lượng data còn lại
+nrow(new_data)
+```
+```{r}
+out_boot = boot(data=new_data$Mercury, statistic = mean_boot_fun, R=1000, sim="ordinary")
+out_boot
+```
+- Ước lượng cho giá trị trung bình là: 1.236552e-01
+- Sai số chuẩn là: 7.577077e-03
+```{r}
+boot.ci(boot.out = out_boot, conf = 0.95, type = 'all')
+```
+# d)
+Việc loại bỏ outlier khiến cho giá trị ước lượng cho trung bình nhỏ lại, tuy nhiên ước lượng có tính ổn định hơn, thể hiện ở việc sai số chuẩn giảm xuống rất nhiều (từ 0.181866667 xuống còn 7.577077e-03)

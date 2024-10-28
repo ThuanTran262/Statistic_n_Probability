@@ -1,0 +1,103 @@
+---
+title: "TranThiThuan_23C23002"
+output: html_document
+date: "2024-05-11"
+---
+
+```{r}
+knitr::opts_knit$set(root.dir = "D:/thuantt2/Document/Learn/Mô hình hóa thống kê/")
+
+library(dplyr)
+library(caret)
+```
+## R Markdown
+```{r}
+# Load data
+data = read.csv('wine.csv')
+plot(data)
+```
+Nhận xét:
+Do Age và FrancePop có tương quan mạnh với nhau nên ta loại 1 trong 2 biến khỏi
+model, ta chọn loại đi biến Age.
+Biến Year không có ý nghĩa trong việc dự đoán, nên ta cũng loại bỏ biến Year
+```{r}
+data.new = data[c('WinterRain', 'AGST', 'HarvestRain', 'FrancePop', 'Price')]
+View(data.new)
+```
+
+```{r}
+# Split train-test data
+set.seed(123)
+training.samples <- data.new$Price  %>%  createDataPartition(p = 0.7, list = FALSE)
+train.data  <- data.new[training.samples, ]
+test.data <- data.new[-training.samples, ]
+dim(train.data)
+dim(test.data)
+```
+```{r}
+# Build the model
+model <- lm(Price ~., data = train.data)
+summary(model)
+```
+Nhận xét:
+- Kiểm định Fisher kiểm định ý nghĩa của model với:
+Ho: b1=b2=...bn = 0
+H1: Có ít nhất 1 bi != 0 (i=1,..,n)
+Với mức ý nghĩa anpha = 0.05, ta thấy model có p-value là 1.628e-05 < 0.05
+Suy ra ta bác bỏ giả thuyết Ho, từ đó suy ra model ta xây dựng là có ý nghĩa.
+- Giá trị Multiple R-squared là 0.8232 cho thấy biến Price được giải thích 82.32% bởi các biến X
+- Kiểm định t-student với 
+Ho: b_i = 0
+H1: b_i != 0
+Với mức ý nghĩa anpha = 0.05, ta thấy:
+Các biến FrancePop, HarvestRain và AGST có giá trị p-value (cột Pr(>|t|)) < 0.05, tức là 3 biến này có ý nghĩa trong việc giải thích biến Price
+Suy ra, ta sẽ giữ lại 3 biến này và loại đi biến WinterRain khỏi model
+
+```{r}
+# Xây dựng model dựa trên 3 biến FrancePop, HarvestRain và AGST
+model2 <- lm(Price ~AGST + HarvestRain+FrancePop, data = train.data)
+summary(model2)
+```
+Sau khi bỏ đi biến WinterRain, các biến còn lại chỉ giải thích được 78.1% biến Price
+
+```{r}
+## Kiểm định Fisher từng phần
+anova(model, model2)
+```
+Kiểm định Fisher từng phần cho 2 model (model2 và model) với:
+Ho: Lựa chọn mô hình rút gọn model2
+H1: Lựa chọn mô hình đầy đủ model
+cho giá trị p-value là 0.07788 (>0.05) nên ta không đủ cơ sở để bác bỏ giả thuyết Ho,
+Vì vậy ta có thể sử dụng model2 (model rút gọn)  để thay thế cho model (model đầy đủ)
+
+```{r}
+# Xây dựng model chỉ sử dụng 2 biến AGST và HarvestRain
+model3 <- lm(Price ~AGST + HarvestRain, data = train.data)
+summary(model3)
+```
+
+```{r}
+## Kiểm định Fisher từng phần
+anova(model2, model3)
+```
+Kiểm định Fisher từng phần cho 2 model (model2 và model3) với:
+Ho: Lựa chọn mô hình rút gọn model3
+H1: Lựa chọn mô hình đầy đủ model2
+cho giá trị p-value là 0.02285 (<0.05) nên ta bác bỏ giả thuyết Ho,
+Vì vậy ta không thể sử dụng model3 (model rút gọn với 2 biến)  để thay thế cho model2
+
+Từ các kiểm định trên, ta sử dụng model2 là model tốt nhất để dự đoán biến Price
+
+```{r}
+# Make prediction
+predictions <- model2 %>% predict(test.data)
+# Model performance
+# (a) Prediction error, RMSE
+RMSE(predictions, test.data$Price)
+# (b) R-square
+R2(predictions, test.data$Price)
+```
+
+Ta thấy RMSE của model2 là 0.2862608, là một mức nhỏ
+Vì vậy sử dụng model2 với 3 biến AGST, HarvestRain, FrancePop là đủ tốt để dự đoán giá trị Price.
+

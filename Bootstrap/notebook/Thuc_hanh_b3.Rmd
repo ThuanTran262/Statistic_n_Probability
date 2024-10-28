@@ -1,0 +1,377 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(boot)
+```
+
+```{r}
+data(city, package='boot')
+head(city)
+```
+
+```{r}
+boxplot(city$u)
+boxplot(city$x)
+```
+
+
+```{r}
+mean_1920 <- mean(city$u)
+mean_1930 <- mean(city$x)
+```
+
+```{r}
+theta_est <- mean_1930/mean_1920
+theta_est
+```
+Do dân số của năm 1930 sẽ có liên quan tới dân số của năm 1920 nên ta đi tính ma trận hiệp phương sai của các ước lượng trung bình mẫu
+
+```{r}
+cor(city$u, city$x, method='spearman') # có tương quan lớn
+```
+```{r}
+n_city <- nrow(city)
+var_1920 <- var(city$u)
+var_1930 <- var(city$x)
+cov_ux <- cov(city$u, city$x)
+var_mean_ux <- matrix(c(var_1920, cov_ux, cov_ux, var_1930), 2, 2)/n_city
+var_mean_ux
+```
+```{r}
+h_deriv <- function(mean_1, mean_2){
+return(c(-mean_2/mean_1^2, 1/mean_1))
+}
+h_deriv_est <- h_deriv(mean_1 = mean_1920, mean_2 = mean_1930)
+h_deriv_est
+```
+```{r}
+var_theta_est <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+var_theta_est
+```
+
+# Thực hành 1: 
+Áp dụng phương pháp delta method vào trong quy trình bootstrap để xác định khoảng tin
+cậy studentized cho tỷ số trung bình của năm 1930 và 1920.
+
+```{r}
+boot_func <- function(data, ind){
+  data <- data[ind,]
+  # est mean
+  mean_est <- mean(data$x)/mean(data$u)
+  # est var
+  n <- nrow(data)
+  var_u <- var(data$u)
+  var_x <- var(data$x)
+  cov_ux <- cov(data$u, data$x)
+  var_mean_ux <- matrix(c(var_u, cov_ux, cov_ux, var_x), 2, 2)/n
+  h_deriv_est <- c(-mean(data$x)/mean(data$u)^2, 1/mean(data$u))
+  var_est <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+  return(c(mean_est, var_est))
+}
+```
+
+```{r}
+set.seed(123)
+boot_out <- boot(data=city, statistic = boot_func, R=1000, sim='ordinary')
+```
+
+```{r}
+boot_out
+```
+```{r}
+boot.ci(boot.out = boot_out)
+```
+# Thực hành 2
+Thực hiện quy trình bootstrap để xác định khoảng tin cậy cho log() của tỷ số hai trung bình,
+sau đó, thực hiện biến đổi ngược để thu được khoảng tin cậy cho tỷ số trung bình.
+
+```{r}
+boot_func <- function(data, ind){
+  data <- data[ind,]
+  log_mean <- log(mean(data$x)/mean(data$u))
+  return(log_mean)
+}
+```
+
+
+```{r}
+set.seed(123)
+boot_out <- boot(data=city, statistic = boot_func, R=1000)
+boot_out
+```
+```{r}
+boot.ci(boot_out)
+```
+
+
+```{r}
+mean_est <- exp(0.4189159)
+mean_est
+```
+
+# Thực hành 3:
+
+Một nghiên cứu lớn về mối liên quan giữa huyết áp và bệnh tim mạch cho thấy 55 trong số
+3338 nam giới bị huyết áp cao chết vì bệnh tim mạch (p1) trong thời gian nghiên cứu, so với 21 trong số 2676
+người bị huyết áp thấp (p2). Rủi ro tương đối (Relative risk) được định nghĩa là tỷ số giữa hai tỷ lệ.
+(a) Áp dụng delta method, ước tính phương sai của rủi ro tương đối (p1/p2).
+(b) Thiết lập một quy trình bootstrap để xác định khoảng tin cậy cho tỷ lệ tương đối xác định theo ý (a).
+(c) Thực hiện lại ý (a) và (b) nhưng cho rủi ro tương đối theo p2/p1, sau đó, lấy biến đổi ngược để suy ra
+khoảng tin cậy cho p1/p2 và so sánh với kết quả ở câu (a) và (b).
+(d) Thực hiện lại ý (a), (b) và (c) nhưng với biến đổi log(p1/p2), sau đó thực hiện biến đổi ngược để xác
+định khoảng tin cậy cho rủi ro tương đối theo p1/p2, và so sánh với kết quả ở trên.
+
+```{r}
+y_0 <- rep(0, 3283)
+y_1 <- rep(1, 55)
+df_0 <- data.frame(high_group = y_0)
+df_1 <- data.frame(high_group = y_1)
+df_high <- rbind(df_0, df_1)
+head(df_high)
+```
+
+```{r}
+y_0 <- rep(0, 2655)
+y_1 <- rep(1, 21)
+df_0 <- data.frame(low_group = y_0)
+df_1 <- data.frame(low_group = y_1)
+df_low <- rbind(df_0, df_1)
+head(df_low)
+```
+
+```{r}
+n1 <- nrow(subset(df_high, df_high$high_group == 1))
+p1 <- n1/3338
+p1
+```
+```{r}
+n2 <- nrow(subset(df_low, df_low$low_group == 1))
+p2 <- n2/2676
+p2
+```
+## a)
+```{r}
+mu <- p1/p2
+mu
+```
+
+
+```{r}
+n_high <- nrow(df_high)
+n_low <- nrow(df_low)
+var_high <- var(df_high$high_group)
+var_low <- var(df_low$low_group)
+cov_ux <- 0
+var_mean_ux <- matrix(c(var_high/n_high, cov_ux, cov_ux, var_low/n_low), 2, 2)
+var_mean_ux
+```
+```{r}
+h_deriv <- function(p1, p2){
+return(c(1/p2, -p1/p2^2))
+}
+h_deriv_est <- h_deriv(p1 = p1, p2 = p2)
+h_deriv_est
+```
+```{r}
+var_theta_est <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+var_theta_est
+```
+## b) Thiết lập một quy trình bootstrap để xác định khoảng tin cậy cho tỷ lệ tương đối xác định theo ý (a).
+
+```{r}
+set.seed(123)
+nR <- 1000
+n_high <- nrow(df_high)
+n_low <- nrow(df_low)
+ratio_boot <- numeric(nR)
+for (i in 1:nR){
+  id_boot_h <- sample(1:n_high, size=n_high, replace=TRUE)
+  id_boot_l <- sample(1:n_low, size=n_low, replace=TRUE)
+  data_h <- df_high[id_boot_h,]
+  data_l <- df_low[id_boot_l,]
+  p1_est <- mean(data_h)
+  p2_est <- mean(data_l)
+  ratio_boot[i] <- p1_est/p2_est
+}
+```
+
+
+```{r}
+mean_boot_ratio <- mean(ratio_boot)
+mean_boot_ratio
+```
+```{r}
+# histogram
+library(ggplot2)
+ggplot(data = data.frame(t = ratio_boot), mapping = aes(x = t)) +
+  geom_histogram(fill = "gray80", color = "black", bins = 20) +
+  xlab("bootstrap mean") + ylab("Frequency") +
+theme_bw()
+```
+
+
+```{r}
+# KTC
+# Do lech chuan boostrap
+se_boot <- sd(ratio_boot)
+b = mean_boot_ratio - mu
+ci_norm_bts <- mean_boot_ratio - b +
+c(-1, 1)*se_boot*qnorm((1 + 0.95)/2)
+ci_norm_bts
+```
+## c)
+```{r}
+# tính variance theo câu a
+h_deriv <- function(p1, p2){
+return(c(-p2/p1^2, 1/p1))
+}
+h_deriv_est <- h_deriv(p1 = p1, p2 = p2)
+h_deriv_est
+```
+```{r}
+var_theta_est <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+var_theta_est
+```
+
+```{r}
+set.seed(123)
+nR <- 1000
+n_high <- nrow(df_high)
+n_low <- nrow(df_low)
+ratio <- nrow(nR)
+for (i in 1:nR){
+  id_boot_h <- sample(1:n_high, size=n_high, replace=TRUE)
+  id_boot_l <- sample(1:n_low, size=n_low, replace=TRUE)
+  data_h <- df_high[id_boot_h,]
+  data_l <- df_low[id_boot_l,]
+  p1_est <- mean(data_h)
+  p2_est <- mean(data_l)
+  ratio[i] <- p2_est/p1_est
+}
+```
+
+```{r}
+mean_boot_ratio <- mean(ratio)
+```
+
+```{r}
+mu_2 <- p2/p1
+mu_2
+```
+
+```{r}
+# KTC
+# Do lech chuan boostrap
+se_boot <- sd(ratio)
+b = mean_boot_ratio - mu_2
+ci_norm_bts <- mean_boot_ratio - b +
+c(-1, 1)*se_boot*qnorm((1 + 0.95)/2)
+ci_norm_bts
+```
+## d)
+
+```{r}
+mu_log <- log(p1/p2)
+```
+
+```{r}
+# variance
+var_mean_ux
+```
+```{r}
+h_deriv <- function(p1, p2){
+return(c(1/p1, -1/p2))
+}
+h_deriv_est <- h_deriv(p1 = p1, p2 = p2)
+h_deriv_est
+```
+```{r}
+var_theta_est <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+var_theta_est
+```
+
+
+```{r}
+set.seed(123)
+nR <- 1000
+n_high <- nrow(df_high)
+n_low <- nrow(df_low)
+ratio <- numeric(nR)
+var <- numeric(nR)
+for (i in 1:nR){
+  id_boot_h <- sample(1:n_high, size=n_high, replace=TRUE)
+  id_boot_l <- sample(1:n_low, size=n_low, replace=TRUE)
+  data_h <- df_high[id_boot_h,]
+  data_l <- df_low[id_boot_l,]
+  p1_est <- mean(data_h)
+  p2_est <- mean(data_l)
+  h <- h_deriv(p1 = p1_est, p2 = p2_est)
+  ratio[i] <- log(p1_est/p2_est)
+  var[i] <- h %*% var_mean_ux %*% h
+}
+```
+
+
+
+```{r}
+z <- (ratio - mu_log)/sqrt(var)
+```
+
+```{r}
+# phân vị:
+z_boot_qt_095 <- sort(z)[floor(nR*c(1 - 0.05/2 , 0.05/2))]
+```
+
+```{r}
+se_mu <- sqrt(var_theta_est)
+ci_stud_bts <- mu_log - se_mu*z_boot_qt_095
+ci_stud_bts
+```
+```{r}
+exp(mean(ratio))
+```
+
+```{r}
+c(exp(0.3279564), exp(1.3105434))
+```
+# Thực hành 4
+
+```{r}
+nR <- 1000
+n <- nrow(city)
+boot_out <- numeric(nR)
+mu_u <- numeric(nR)
+for (i in 1:nR){
+  ind <- sample(1:n, size = nR, replace = TRUE)
+  data <- city[ind,]
+  mean_u <- mean(data$u)
+  mean_x <- mean(data$x)
+  theta <- mean_x/mean_u
+  boot_out[i] <- theta
+  mu_u[i] <- mean_u
+}
+```
+
+
+```{r}
+theta_boot <- mean(boot_out)
+theta_u <- mean(mu_u)
+```
+
+
+```{r}
+sum <- 0
+for (r in 1:n){
+  data <- city[r,]
+  t <- ((data$x - theta_boot*data$u)/theta_u)^2
+  sum <- sum + t
+}
+```
+
+
+```{r}
+sum/(n^2)
+```
+
