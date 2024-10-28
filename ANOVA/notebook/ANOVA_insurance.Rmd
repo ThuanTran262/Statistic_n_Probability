@@ -1,0 +1,66 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(car)
+```
+
+```{r}
+data <- read.csv('../data/insurance.csv')
+head(data)
+```
+We will check whether the number of children affects the insurance fee or not.
+
+```{r}
+# get columns "children" and "charges"
+data <- data[,c(4, 7)]
+head(data)
+```
+
+```{r}
+unique(data$children)
+```
+
+The number of children in a family can take values from 0 to 5
+
+```{r}
+boxplot(data$charges ~ data$children)
+```
+
+In all groups of "children", There are outliers in charges
+
+```{r}
+data %>% group_by(children)  %>%
+                    summarise(mean_charge = mean(charges))
+```
+
+
+
+```{r}
+data$children <- as.factor(data$children)
+lm1 <- lm(charges~children, data=data) 
+anova(lm1)
+```
+Do p-value < 0.05 nên ta bác bỏ giả thuyết Ho: Trung bình giữa các nhóm là như nhau và chấp nhận giả thuyết H1: có ít nhất 1 cặp có trung bình khác nhau.
+
+```{r}
+summary(lm1)
+```
+Kiểm tra trung bình của từng cặp
+
+```{r}
+aov1 <- aov(charges~children, data=data) 
+summary(aov1)
+```
+
+```{r}
+#test all possible comparisons of two means. 
+with(data, pairwise.t.test(charges, children, p.adj = "bonferroni"))
+```
+```{r}
+
+```
+

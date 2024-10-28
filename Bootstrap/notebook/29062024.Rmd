@@ -1,0 +1,123 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+data(city, package='boot')
+head(city)
+```
+
+```{r}
+X <- city$x
+Y <- city$u
+```
+
+```{r}
+mean(X)/mean(Y)
+```
+
+```{r}
+set.seed(123)
+nR <- 10000
+n <- nrow(city)
+theta <- numeric(nR)
+p_val <- numeric(nR)
+mu_X <- mean(X)
+mu_Y <- mean(Y)
+for (i in 1:nR){
+  ind <- sample(1:n, n, replace = TRUE)
+  data <- city[ind,]
+  X_boot <- data$x
+  X_boot <- X_boot*mu_Y
+  Y_boot <- data$u
+  Y_boot <- Y_boot*mu_X
+  theta[i] <- mean(X_boot)/mean(Y_boot)
+  if (abs(theta[i]) > mu_X/mu_Y){
+    p_val[i] = 1
+  }
+}
+```
+
+```{r}
+mean(theta)
+```
+```{r}
+mean(p_val) # p_value nho hon 0.05 => Bac bo Ho => ty le giua X va Y la khac 1
+```
+
+```{r}
+# histogram
+library(ggplot2)
+ggplot(data = data.frame(t = theta), mapping = aes(x = t)) +
+geom_histogram(fill = "gray80", color = "black", bins = 20) +
+geom_vline(xintercept = mu_X/mu_Y, color = "blue",
+linetype = "dashed") +
+geom_vline(xintercept = mean(theta), color = "red",
+linetype = "dashed") +
+xlab("bootstrap mean") + ylab("Frequency") +
+theme_bw()
+```
+
+```{r}
+# pivot
+n_city <- nrow(city)
+var_1920 <- var(city$u)
+var_1930 <- var(city$x)
+cov_ux <- cov(city$u, city$x)
+var_mean_ux <- matrix(c(var_1920, cov_ux, cov_ux, var_1930), 2, 2)/n_city
+var_mean_ux
+```
+```{r}
+h_deriv <- function(mean_1, mean_2){
+return(c(-mean_2/mean_1^2, 1/mean_1))
+}
+h_deriv_est <- h_deriv(mean_1 = mean_1920, mean_2 = mean_1930)
+h_deriv_est
+```
+
+```{r}
+var_obs <- h_deriv_est %*% var_mean_ux %*% h_deriv_est
+var_obs
+```
+```{r}
+t_obs <- (mu_X/mu_Y)/sqrt(var_obs)
+t_obs
+```
+bootstrap
+
+```{r}
+set.seed(123)
+nR <- 10000
+n <- nrow(city)
+theta <- numeric(nR)
+p_val <- numeric(nR)
+mu_X <- mean(X)
+mu_Y <- mean(Y)
+for (i in 1:nR){
+  ind <- sample(1:n, n, replace = TRUE)
+  data <- city[ind,]
+  X_boot <- data$x
+  X_boot <- X_boot*mu_Y
+  Y_boot <- data$u
+  Y_boot <- Y_boot*mu_X
+  theta[i] <- mean(X_boot)/mean(Y_boot)
+  # variance
+  var_Y <- var(Y_boot)
+  var_X <- var(X_boot)
+  cov_xy <- cov(Y_boot, X_boot)
+  var_mean_xy <- matrix(c(var_Y, cov_xy, cov_xy, var_X), 2, 2)/n
+  h_deriv_est <- c(-mean(X_boot)/mean(Y_boot)^2, 1/mean(Y_boot))
+  if (abs(theta[i]) > mu_X/mu_Y){
+    p_val[i] = 1
+  }
+}
+```
+```{r}
+sd(theta)
+```
+```{r}
+```
+
+
+

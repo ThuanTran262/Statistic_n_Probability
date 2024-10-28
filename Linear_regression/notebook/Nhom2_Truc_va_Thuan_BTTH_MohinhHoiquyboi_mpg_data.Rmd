@@ -1,0 +1,274 @@
+---
+title: "Mô hình Hồi quy bội - MPG Data"
+author: "Nhóm 2 (Nguyễn Thanh Trúc và Trần Thị Thuận)"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: se latex
+  html_notebook: default
+---
+
+
+```{r message=FALSE, echo=FALSE, warning=FALSE}
+library(car)
+library(dplyr)
+library(caret)
+library(corrplot)
+library(readxl)
+library(ggplot2)
+library(readxl)
+
+# knitr::opts_knit$set(root.dir = "~/TrucNT7/Master/CoNgoc_MHHTK/")
+# knitr::opts_knit$set(root.dir = "~/Desktop/Statistics/CoNgoc_MHHTK/")
+data <- read.csv('./auto-mpg_data.csv', sep='', header=FALSE)
+# rename columns
+names(data) <- c("mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", "modelyear", "origin", "carname")
+```
+
+## 1. Exploratory Data Analysis (EDA)
+```{r}
+head(data)
+```
+
+```{r}
+str(data)
+```
+
+```{r}
+# cast type for column
+data[,"horsepower"] <- as.numeric(data[,"horsepower"])
+```
+
+**Kiểm tra giá trị Missing Data**
+
+```{r}
+# check na values
+colSums(is.na(data))
+```
+
+**Nhận xét**\
+Từ kết quả ở trên, ta thấy input data này có 6 observations MISSING DATA tại biến $horsepower$, do số lượng na không nhiwwfu nên ta sẽ xử lý bằng cách loại bỏ 6 obs này.
+
+```{r}
+# remove na values
+data <- na.omit(data)
+```
+
+**Kiểm tra OUTLIERS**
+
+
+```{r}
+# check outliers
+par(mfrow=c(2,2))
+numerical_cols <- c("mpg", "displacement", "horsepower", "weight", "acceleration")
+cols <- c("displacement", "horsepower", "weight", "acceleration")
+
+for (col in cols){
+  boxplot(data[, col], col = "chocolate1", xlab=col, horizontal = TRUE, main = paste("Boxplot of", col))
+}
+```
+
+Nhận xét: Có outlier ở 2 biến acceleration và biến horsepower, ta cần xử lý loại bỏ outliers
+
+```{r}
+# remove outliers
+quartiles <- quantile(data[["acceleration"]], probs=c(.25, .75))
+IQR <- IQR(data[["acceleration"]])
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+```
+
+```{r}
+quartiles2 <- quantile(data[["horsepower"]], probs=c(.25, .75))
+IQR <- IQR(data[["horsepower"]])
+
+Lower2 <- quartiles2[1] - 1.5*IQR
+Upper2 <- quartiles2[2] + 1.5*IQR 
+```
+
+```{r}
+data_new <- subset(data, data[["acceleration"]] > Lower & data[["acceleration"]] < Upper & data[["horsepower"]] > Lower2 & data[["horsepower"]] < Upper2)
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+cols <- c("displacement", "horsepower", "weight", "acceleration")
+for (c in cols){
+  boxplot(data_new[c], horizontal = TRUE, main = paste("Boxplot of", c), col = "beige")
+}
+```
+Sau khi loại bỏ outlier ta thấy giữ liệu đã có ít outlier hơn
+
+```{r}
+# Dummy variable for origin column
+unique(data_new$origin)
+```
+
+```{r}
+data_new$origin <- relevel(as.factor(data_new$origin), ref='3')
+contrasts(data_new$origin)
+```
+
+```{r}
+# Dummy variable for modelyear column
+unique(data_new$modelyear)
+```
+
+```{r}
+data_new$modelyear <- relevel(as.factor(data_new$modelyear), ref='82')
+```
+
+```{r}
+contrasts(data_new$modelyear)
+```
+
+```{r}
+# Dummy variable for cylinders column
+unique(data_new$cylinders)
+```
+
+```{r}
+data_new$cylinders = relevel(as.factor(data_new$cylinders), ref='5')
+```
+
+```{r}
+data_new <- data_new[-9]
+```
+
+```{r}
+# Split train-test data
+set.seed(123)
+training.samples <- data_new$mpg  %>%  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- data_new[training.samples, ]
+test.data <- data_new[-training.samples, ]
+dim(train.data)
+dim(test.data)
+```
+
+## 2. Kiểm tra đa cộng tuyến trên các cột định lượng
+
+```{r}
+head(train.data)
+```
+
+```{r}
+corrplot(cor(train.data[, c('displacement', 'horsepower', 'weight', 'acceleration')]), addCoef.col = 'grey')
+```
+
+Ta thấy có mối tương quan cao giữa 3 biến displacement, horsepower và weight
+
+**Step 1**\
+Train $\text{model}_{1}$ với tất cả các biến phụ thuộc (numeric)
+
+```{r}
+# build model loại đa cộng tuyến
+num_data <- train.data[, c('mpg', 'displacement', 'horsepower', 'weight', 'acceleration')]
+model_1 <- lm(mpg~., data = num_data)
+summary(model_1)
+```
+
+**Step 2**\
+Ta sẽ dùng phương pháp **VIF** để xử lý hiện tượng đa cộng tuyến trong dữ liệu
+
+```{r}
+# Visualizing VIF
+vif_model_1 <- vif(model_1)
+barplot(vif_model_1, col = "bisque1", main = "Variance Inflation Factor (VIF)")
+```
+
+```{r}
+vif_model_1
+```
+
+
+**Nhận xét**\
+Ta thấy $VIF_{weight}$ = 14.461 rất cao nên cần được xử lý bằng cách loại bỏ ra khỏi model
+
+
+```{r}
+num_data <- train.data[, c('mpg', 'displacement', 'horsepower', 'acceleration')]
+model_2 <- lm(mpg~., data = num_data)
+summary(model_2)
+```
+
+```{r}
+# Visualizing VIF
+vif_model_2 <- vif(model_2)
+barplot(vif_model_2, col = "bisque1", main = "Variance Inflation Factor (VIF) \n (Lần 2)")
+```
+
+
+```{r}
+vif_model_2
+```
+
+**Nhận xét**\
++ Ta thấy $VIF_{horsepower}$ = 6.47 cao nên cần được xử lý bằng cách loại bỏ ra khỏi $model_{2}$ 
+
+```{r}
+num_data <- train.data[, c('mpg', 'displacement', 'acceleration')]
+model_3 <- lm(mpg~., data = num_data)
+summary(model_3)
+```
+
+```{r}
+# Visualizing VIF
+vif_model_3 <- vif(model_3)
+barplot(vif_model_3, col = "cyan", main = "Variance Inflation Factor (VIF) \n (Lần 3)")
+```
+
+```{r}
+vif_model_3
+```
+
+**Nhận xét**\
+Các chỉ sổ $VIF$ đều nhỏ hơn 5 nên thỏa điều kiện không có hiện tượng đa cộng tuyến, có thể $displacement$ và $acceleration$ sử dụng để xây dựng **Mô hình hồi quy bội**.
+
+
+```{r}
+head(train.data)
+```
+
+```{r}
+train.data <- train.data[,c('mpg', 'cylinders', 'displacement', 'acceleration', 'modelyear', 'origin')]
+head(train.data)
+```
+
+## 3. Xây dựng model dự báo
+
+```{r}
+full_model <- lm(mpg~., data=train.data)
+summary(full_model)
+```
+
+```{r}
+step(full_model, direction = 'backward', trace = TRUE)
+```
+Lựa chọn được mô hình tốt nhất (có AIC nhỏ nhất) là mpg ~ cylinders + displacement + modelyear + origin
+
+```{r}
+model_re = lm(mpg~., data=train.data[,c('mpg', 'cylinders', 'displacement', 'modelyear', 'origin')])
+summary(model_re)
+```
+
+## 4. Dự đoán trên dữ liệu TEST (20%)
+
+```{r}
+# Make prediction
+predictions <- model_re %>% predict(test.data)
+# Model performance
+# (a) Prediction error, RMSE
+rmse <- RMSE(predictions, test.data$mpg)
+rmse
+# (b) R-square
+R2(predictions, test.data$mpg)
+```
+
+Ta thấy RMSE của model rút gọn là `r round(rmse, 4)` là một mức nhỏ so với mpg, nên model cho kết quả dự đoán là tốt.
+
+$$
+\text{THE END !!!}
+$$

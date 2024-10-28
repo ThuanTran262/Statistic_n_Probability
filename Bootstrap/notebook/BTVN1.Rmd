@@ -1,0 +1,193 @@
+---
+title: "BTVN so 1"
+author: "Tran Thi Thuan"
+date: "2024-05-17"
+output:
+  pdf_document:
+    latex_engine: lualatex
+    keep_tex: true
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "../Boostrap/")
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(boot)
+```
+
+Bài tập số 5:
+a)
+
+```{r}
+set.seed(123)
+data <- rnorm(200,mean = 36, sd= 8)
+data.mean <- mean(data)
+data.sd <- sd(data)
+# Trung bình mẫu
+data.mean
+# Độ lệch chuẩn mẫu
+data.sd
+```
+Theo định lý Giới hạn trung tâm, với cỡ mẫu là 200, phân phối của Trung bình mẫu sẽ tuân theo phân phối chuẩn với:
+```{r}
+## trung bình:
+sample.mean <- 36
+sample.mean
+## Độ lệch chuẩn:
+sample.sd <- 8/sqrt(200)
+sample.sd
+```
+b) 
+```{r}
+# Sử dụng phương pháp boostrap
+nR <- 1000
+mu_boot <- numeric(nR)
+for (i in 1:nR) {
+  data_boot <- sample(data, 200, replace = TRUE)
+  mu_boot[i] <- mean(data_boot)
+}
+# Trung bình mẫu theo phương pháp boostrap là:
+mean(mu_boot)
+# Độ lệch chuẩn mẫu theo phương pháp boostrap là
+sd(mu_boot)
+```
+So sánh kết quả phân phối mẫu theo phương pháp boostrap và phân phối được xác định theo lý thuyết, ta thấy 2 kết quả gần như là bằng nhau
+
+c)
+TH1: Cỡ mẫu n = 50
+```{r}
+# Tạo mẫu ngẫu nhiên:
+set.seed(123)
+data <- rnorm(50,mean = 36, sd= 8)
+data.mean <- mean(data)
+data.sd <- sd(data)
+# Phân phối mẫu:
+## Trung bình
+sample.mean <- 36
+sample.mean
+## Độ lệch chuẩn
+sample.sd <- 8/sqrt(50)
+sample.sd
+```
+
+
+```{r}
+# Boostrap method
+nR <- 1000
+mu_boot <- numeric(nR)
+for (i in 1:nR) {
+  data_boot <- sample(data, 50, replace = TRUE)
+  mu_boot[i] <- mean(data_boot)
+}
+## Trung bình:
+mean(mu_boot)
+## Độ lệch chuẩn
+sd(mu_boot)
+```
+
+TH2: Cỡ mẫu n = 10
+
+```{r}
+# Tạo mẫu ngẫu nhiên:
+set.seed(123)
+data <- rnorm(10,mean = 36, sd= 8)
+data.mean <- mean(data)
+data.sd <- sd(data)
+# Phân phối mẫu:
+## Trung bình
+sample.mean <- 36
+sample.mean
+## Độ lệch chuẩn
+sample.sd <- 8/sqrt(10)
+sample.sd
+```
+```{r}
+# Boostrap method
+nR <- 1000
+mu_boot <- numeric(nR)
+for (i in 1:nR) {
+  data_boot <- sample(data, 10, replace = TRUE)
+  mu_boot[i] <- mean(data_boot)
+}
+## Trung bình:
+mean(mu_boot)
+## Độ lệch chuẩn
+sd(mu_boot)
+```
+
+Nhận xét: 
+So sánh phân phối mẫu theo lý thuyết, cỡ mẫu 50 cho ước lượng về phân phối mẫu chính xác hơn là cỡ mẫu 10 (độ lệch chuẩn nhỏ hơn)
+
+Sử dụng phương pháp boostrap ở cả 2 cỡ mẫu đều cho kết quả sấp xỉ gần bằng phân phối mẫu lý thuyết
+Bài tập 6:
+
+```{r}
+# load data
+bruc <- read.csv('./brucellosis.csv')
+```
+
+a)
+```{r}
+typeof(bruc$group)
+bruc$group = as.character(bruc$group)
+ggplot(bruc, aes(x=group, y=scores)) + 
+  geom_boxplot()+
+  ggtitle("Box plot of score in group 0 and group 1")
+```
+
+Nhận xét: nhìn chung, chỉ score của nhóm người mắc bệnh là cao hơn so với nhóm người không mắc bệnh
+b) Viết đoạn chương trình tính theta_hat
+```{r}
+# Lấy ra score của nhóm 0 và 1
+scores_0 <- filter(bruc, group=='0')$scores
+scores_1 <- filter(bruc, group=='1')$scores
+# define n, m
+n <- length(scores_0)
+m <- length(scores_1)
+# đoạn code tính theta_hat
+count <- 0
+for (i in scores_0){
+  for (j in scores_1){
+    if (i<j){
+      count <- count + 1      
+    }
+  }
+}
+theta_hat = 1/(n*m)*count
+# kết quả
+theta_hat
+```
+
+c) Áp dụng phương pháp boostrap xác định phân phối của theta_hat
+```{r}
+s <- nrow(bruc)
+nR <- 1000
+mu_boot <- numeric(nR)
+for (x in 1:nR){
+  id_boost <- sample(1:s, size = s, replace = TRUE)
+  bruc_boot <- bruc[id_boost, c('scores', 'group')]
+  scores_0 <- filter(bruc_boot, group=='0')$scores
+  scores_1 <- filter(bruc_boot, group=='1')$scores
+  n <- length(scores_0)
+  m <- length(scores_1)
+  count <- 0
+  for (i in scores_0){
+    for (j in scores_1){
+      if (i<j){
+        count <- count + 1      
+      }
+    }
+  }
+  theta_hat <- 1/(n*m)*count
+  mu_boot[x] <- theta_hat
+}
+# theta_hat tuân theo phân phối chuẩn với
+## Trung bình
+mean(mu_boot)
+## Độ lệch chuẩn
+sd(mu_boot)
+```
+

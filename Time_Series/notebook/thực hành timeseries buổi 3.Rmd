@@ -1,0 +1,56 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(astsa)
+```
+
+Áp dụng phương pháp differencing
+
+Vẽ đồng thời X_t, Y_t, X_t - X_t-1 trên cùng 1 figure
+
+```{r}
+data <- chicken
+data
+```
+
+```{r}
+t <- time(chicken)
+t
+```
+
+```{r}
+diff_chicken <- diff(chicken)
+diff_chicken
+```
+
+```{r}
+help(diff)
+```
+
+```{r}
+model <- lm(data~t)
+model$coefficients
+```
+
+mu_t = -7131.022465 + 3.592109
+Y_t = X_t - mu_t = X_t + 7131.022465 - 3.592109*t
+
+
+```{r}
+Y_t <- data + 7131.022465 - 3.592109*t
+```
+
+```{r, fig.width=10, fig.height=4}
+par(mfrow=c(1, 3))
+plot(data)
+plot(Y_t)
+plot(diff_chicken)
+```
+
+```{r}
+
+```
+

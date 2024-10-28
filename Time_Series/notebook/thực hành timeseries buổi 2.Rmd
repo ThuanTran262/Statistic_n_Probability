@@ -1,0 +1,219 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+help(lag)
+```
+
+```{r}
+library(astsa)
+library(ggplot2)
+```
+
+```{r}
+ts_ex1 <- soi
+```
+
+```{r}
+ts_ex1_lag <- lag(ts_ex1, -6)
+```
+
+```{r}
+sample_mean <- mean(ts_ex1)
+sample_mean
+```
+
+```{r}
+n <- length(ts_ex1)
+```
+
+# Tính auto-covariance
+
+```{r}
+acov_ex1_h <- sum((ts_ex1_lag-sample_mean)*(ts_ex1-sample_mean))/n
+acov_ex1_h
+```
+
+
+# Tính auto-correlation
+
+```{r}
+acov_ex1_0 <- sum((ts_ex1-sample_mean)^2)/n
+acov_ex1_0
+```
+
+```{r}
+acor_ex1_h <- acov_ex1_h/acov_ex1_0
+acor_ex1_h
+```
+
+Trong R có hàm acf
+
+```{r}
+help(acf)
+```
+
+
+```{r}
+acf(ts_ex1, lag.max = 6, type = "covariance")
+```
+
+```{r}
+acf(ts_ex1, lag.max=6, type = "correlation")
+```
+
+```{r}
+li <- acf(ts_ex1, lag.max = 6, type = "correlation", plot = FALSE)
+li
+```
+
+==> lag=6 là chỉ 6 tháng đầu, đơn vị thời gian của bộ dataset đang ghi theo năm => 1 tháng là 1/12 năm
+=> tháng 1: 1/12
+=> tháng 2: 1/12*2
+...
+=> tháng 6: 1/12*6
+
+
+```{r}
+li$acf
+```
+
+```{r}
+n <- length(ts_ex1)
+n
+```
+
+```{r}
+10*m<-2
+```
+
+```{r}
+10*log10((n-1)/m)
+```
+
+# BÀI TẬP 1
+Thực hiện lại Thí dụ 1 tính sample ACF và sample CCF cho SOI series St bằng hai cách
+• cách 1: tính trực tiếp theo công thức ước lượng lý thuyết;
+• cách 2: sử dụng hàm acf(...);
+nhưng với giá trị "lag parameter h" lần lượt là h = 5, h = 2, h = −3.
+
+```{r}
+li <- c(5, 2, -3)
+sample_mean <- mean(ts_ex1)
+n <- length(ts_ex1)
+acov_0 <- sum((ts_ex1-sample_mean)^2)/n
+for (h in li){
+  ts_lag <- lag(ts_ex1, -h)
+  acov_h <- sum((ts_lag-sample_mean)*(ts_ex1-sample_mean))/n
+  acor_h <- acov_h/acov_0
+  print(paste0('Với h = ', h, ' acov là: ', acov_h, ' và acor là ', acor_h))
+}
+
+```
+
+```{r}
+li <- c(5, 2, -3)
+for (h in li){
+  acov <- acf(ts_ex1, lag.max = abs(h), type='covariance', plot=FALSE)
+  acor <- acf(ts_ex1, lag.max = abs(h), type='correlation', plot=FALSE)
+  print(paste0('Với h = ', h))
+  print('acov')
+  print(acov$acf)
+  print('acor')
+  print(acor$acf)
+}
+
+```
+```{r}
+help(ccf)
+```
+
+# Bài tập 2
+
+Bài 2. (a) Mô phỏng một realization (hay sample) của Gaussian white noise time series Wt cỡ mẫu n = 500
+với σW = 1.2.
+Sau đó, tính sample autocovariance function γbW (h) và sample auto-correlation function (ACF) ρbW (h) của
+dữ liệu mô phỏng này, với "lag = 20".
+So sánh giá trị ước lượng sample ACF với giá trị chính xác theo lý thuyết (xem lại thí dụ đã tính hàm ACF
+ρ(h) cho gaussian white noise).
+(b) Thực hiện lại câu (a) nhưng với cỡ mẫu n = 50. Qua đó đưa ra nhận xét xem cỡ mẫu có ảnh hưởng gì
+đến kết quả tính toán hay không?
+
+
+```{r}
+t <- 0:500
+n <- length(t)
+data <- rnorm(n, sd=1.2)
+```
+
+```{r}
+plot(t, data, type='l')
+```
+
+```{r}
+ts_data <- ts(data)
+```
+
+```{r}
+acf(ts_data, lag.max = 20, type='covariance', plot = TRUE)
+```
+
+```{r}
+acf(ts_data, lag.max = 20, type='covariance', plot=FALSE)
+```
+
+```{r}
+```
+
+```{r}
+acf(ts_data, lag.max = 20, type='correlation', plot = TRUE)
+```
+
+```{r}
+acf(ts_data, lag.max = 20, type='correlation', plot = FALSE)
+```
+
+# Bộ data chicken
+
+```{r}
+data <- chicken
+```
+
+```{r}
+t <- time(chicken)
+```
+
+```{r}
+model <- lm(data~t)
+model$coefficients
+```
+
+```{r}
+df <- data.frame(time = t, price=data)
+```
+
+
+```{r}
+plot(df, type='l')
+```
+
+
+```{r}
+Xt <- model$coefficients[1] + model$coefficients[2]*t
+plot(Xt)
+```
+
+# BỘ dữ liệu population
+
+
+```{r}
+pairs(cbind(tempr, part, cmort))
+```
+
+```{r}
+model <- lm(cmort~time(cmort) + part+tempr)
+summary(model)
+```
+

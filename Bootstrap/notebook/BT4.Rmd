@@ -1,0 +1,152 @@
+---
+title: "BÀI 4"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r}
+library(ggplot2)
+```
+
+
+```{r}
+data <- read.csv('TV.csv')
+head(data)
+```
+# a)
+
+```{r}
+str(data)
+```
+
+```{r}
+unique(data$Cable)
+```
+Mô tả dữ liệu Time của kênh truyền hình cơ bản
+```{r}
+length(subset(data, data$Cable == "Basic")$Time)
+```
+Có 10 quan sát cho kênh truyền hình cơ bản
+
+```{r}
+summary(subset(data, data$Cable == "Basic")$Time)
+```
+- Thời gian quảng cáo của kênh cơ bản nằm trong khoảng từ 7-11 phút, trung bình là 9.2 phút.
+
+Mô tả dữ liệu Time của kênh truyền hình mở rộng
+```{r}
+length(subset(data, data$Cable == "Extended")$Time)
+```
+Có 10 quan sát cho kênh truyền hình mở rộng
+
+```{r}
+summary(subset(data, data$Cable == "Extended")$Time)
+```
+- Thời gian quảng cáo của kênh mở rộng nằm trong khoảng từ 3.4-9.6 phút, trung bình là 6.87 phút.
+
+Ta thấy trung bình thời gian dành cho quảng cáo của truyền hình cơ bản cao hơn so với truyền hình mở rộng. Để có cái nhìn trực quan hơn, ta vẽ biểu đồ boxplot cho 2 tập dữ liệu:
+
+```{r}
+ggplot(data, aes(x = Cable, y = Times)) +
+  geom_boxplot()
+```
+- Ta thấy không có outlier ở dữ liệu Time trong 2 kênh cơ bản và mở rộng.
+
+# b)
+
+```{r}
+basic_data <- subset(data, data$Cable == "Basic")$Time
+extend_data <- subset(data, data$Cable == "Extended")$Time
+```
+
+```{r}
+basic_data
+extend_data
+```
+
+```{r}
+# Qua trinh boostrap
+n <- 10
+nR <- 1000
+mu_boot <- numeric(nR)
+set.seed(123)
+for (i in 1:nR) {
+id_boot <- sample(1:n, size = n, replace = TRUE)
+basic_data_boot <- basic_data[id_boot]
+extend_data_boot <- extend_data[id_boot]
+mu_boot[i] <- mean(basic_data_boot) - mean(extend_data_boot)
+}
+```
+
+
+```{r}
+mean(mu_boot)
+```
+```{r}
+# histogram
+library(ggplot2)
+ggplot(data = data.frame(t = mu_boot), mapping = aes(x = t)) +
+geom_histogram(fill = "gray80", color = "black", bins = 20) +
+geom_vline(xintercept = mean(basic_data) - mean(extend_data), color = "blue",
+linetype = "dashed") +
+geom_vline(xintercept = mean(mu_boot), color = "red",
+linetype = "dashed") +  
+xlab("bootstrap mean") + ylab("Frequency") +
+theme_bw()
+```
+Đường màu đỏ biểu diễn sự khác biệt về thời gian trung bình giữa kênh cơ bản và kênh mở rộng khi được ước lượng bằng phương pháp bootstrap
+Đường màu xanh biểu diễn sự khác biệt thực tế về thời gian trung bình giữa kênh cơ bản và kênh mở rộng.
+Ta thấy hai đường này rất gần nhau.
+
+Phân phối bootstrap có dạng gần giống với phân phối chuẩn
+
+Khoảng tin cậy 95% bootstrap normal
+
+```{r}
+mu_dif = (mean(basic_data) - mean(extend_data))
+```
+
+```{r}
+# Độ chệch
+b = (mean(mu_boot) - mu_dif)
+
+```
+
+```{r}
+# Sai số chuẩn
+se_boot = sd(mu_boot)
+
+```
+
+```{r}
+ci_norm_bts <- mu_dif - b +
+c(-1, 1)*se_boot*qnorm((1 + 0.95)/2)
+ci_norm_bts
+```
+Khoảng tin cậy bootstrap normal 95% là (1.24431, 3.47849), tức là trong 1000 lấy mẫu bootstrap, thì có 950 lần cho kết quả khác biệt giữa thời gian quảng cáo của kênh cơ bản và kênh mở rộng là 1 con số nằm trong khoảng (1.24431, 3.47849)
+
+# c)
+
+Sai số chuẩn bootstrap:
+
+```{r}
+sd(mu_boot)
+```
+Độ chệch:
+
+```{r}
+mean(mu_boot) - mu_dif
+```
+
+Tỷ số giữa độ lệch và sai số chuẩn:
+
+```{r}
+-0.0214/0.5699545
+```
+# d)
+Với khoảng tin cậy 95% (1.24431, 3.47849), ta có thể kết luận thời gian quảng cáo trên kênh cơ bản nhiều hơn thời gian quảng cáo trên kênh mở rộng với mức tin cậy 95%
+

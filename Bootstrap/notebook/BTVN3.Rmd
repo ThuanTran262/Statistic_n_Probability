@@ -1,0 +1,165 @@
+---
+title: "R Notebook"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_notebook: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ggplot2)
+```
+
+# Bài 1
+
+$H_0: \mu_D = \mu_0; H_1: \mu_D \ne \mu_0$
+
+**a) Thiết lập quy trình kiểm định bootstrap cho giả thuyết H0**
+
+Do ta không có thông tin về phân phối của dữ liệu nên ta không thể ghép hai mẫu thành 1.\
+Gọi $X^*, Y^*$ lần lượt là các mẫu bootstrap của X và Y. Để đảm bảo mẫu bootstrap được xây dựng dưới giả thuyết $H_0$, ta cần đảm bảo rằng $E(X^*) = E(Y^*)$
+
+Do đó mẫu bootstrap sẽ được tạo bởi $X^* = X - \bar{X}$ và $Y^* = X - \bar{Y}$
+
+Ta thiết lập quy trình boostrap như sau:
+
+$-$ **Bước 1**: Tính các giá trị quan sát\
+<center>
+$\mu_X = mean(X)$\
+$\mu_Y = mean(Y)$\
+$\mu_D = \mu_Y - \mu_X$
+</center>
+
+$-$ **Bước 2**: Lấy mẫu có hoàn lại trên tập X và tập Y với cỡ mẫu bằng cỡ mẫu của tập dữ liệu gốc, sau đó tính các giá trị:
+<center>
+$X_i^* = X_j^* - \bar{X}$\
+$Y_i^* = Y_j^* - \bar{Y}$
+</center>
+$-$ **Bước 3**: Tính các ước lượng $\bar{X^*}$, $\bar{Y^*}$ từ dữ liệu vừa tạo
+
+$-$ **Bước 4**: Tính giá trị thống kê: 
+<center>
+$t^* = \bar{Y^*} - \bar{X^*}$
+</center>
+$-$ **Bước 5**: Lặp lại các bước trên 2000 lần
+
+$-$ **Bước 6**: Tính p_value thep công thức
+<center>
+
+![](D:\thuantt2\Document\Learn\Boostrap\BTVN3\p_value_formula.jpg)
+</center>
+
+**b) Thực hiện trên mẫu mô phỏng**
+
+
+```{r}
+# Tạo mẫu
+pool_1 <- 50:200
+pool_2 <- 40:150
+set.seed(123)
+X <- sample(pool_1, 30, replace = FALSE)
+set.seed(23)
+Y <- sample(pool_2, 30, replace = FALSE)
+```
+
+```{r}
+X
+```
+
+```{r}
+Y
+```
+
+
+```{r}
+set.seed(123)
+mu_X <- mean(X)
+mu_Y <- mean(Y)
+t_obs <- mu_Y - mu_X
+n <- 30
+nR <- 2000
+t_boot <- numeric(nR)
+p_boot <- numeric(nR)
+for (i in 1:nR){
+  X_boot <- sample(X, n, replace = TRUE)
+  X_boot <- X_boot - mu_X
+  mu_X_boot <- mean(X_boot)
+
+  Y_boot <- sample(Y, n, replace = TRUE)
+  Y_boot <- Y_boot - mu_Y
+  mu_Y_boot <- mean(Y_boot)
+  t_boot[i] <- mu_Y_boot - mu_X_boot
+  if (abs(t_boot[i]) > abs(t_obs)) {
+    p_boot[i] = 1
+  }
+}
+
+```
+
+
+```{r}
+mean(p_boot)
+```
+
+
+```{r}
+ggplot(data = data.frame(t = t_boot), mapping = aes(x = t)) +
+geom_histogram(fill = "gray80", color = "black", bins = 20) +
+geom_vline(xintercept = mu_Y - mu_X, color = "blue",
+linetype = "dashed") +
+geom_vline(xintercept = mean(t_boot), color = "red",
+linetype = "dashed") +
+xlab("bootstrap mean") + ylab("Frequency") +
+theme_bw()
+```
+
+Do p-value < 0.05 nên ta bác bỏ giả thuyết $H_0$ và chấp nhận giả thuyết $H_1$, tức là có sự khác biệt giữa 2 nhóm.\
+Xác suất sai lầm loại I là:\
+Độ mạnh của thực nghiệm:
+
+** Kiểm tra với t-test ** cho mẫu ghép cặp
+
+```{r}
+set.seed(123)
+mu_X <- mean(X)
+sd_X <- sd(X)
+
+mu_Y <- mean(Y)
+sd_Y <- sd(Y)
+
+n<- 30
+
+t_obs <- (mu_Y - mu_X)/sqrt((sd_Y^2/n) + (sd_X^2/n))
+nR <- 2000
+t_boot <- numeric(nR)
+p_boot <- numeric(nR)
+for (i in 1:nR){
+  X_boot <- sample(X, n, replace = TRUE)
+  X_boot <- X_boot - mu_X
+  mu_X_boot <- mean(X_boot)
+  sd_X_boot <- sd(X_boot)
+  
+  Y_boot <- sample(Y, n, replace = TRUE)
+  Y_boot <- Y_boot - mu_Y
+  mu_Y_boot <- mean(Y_boot)
+  sd_Y_boot <- sd(Y_boot)
+  
+  t_boot[i] <- (mu_Y_boot - mu_X_boot)/sqrt((sd_Y_boot^2/n) + (sd_X_boot^2/n))
+  if (abs(t_boot[i]) > abs(t_obs)) {
+    p_boot[i] = 1
+      }
+  }
+```
+
+
+```{r}
+p_value <- mean(p_boot)
+p_value
+```
+
+Nhận xét: p_value < 0.05 nên ta bác bỏ giả thuyết $H_0$, giống kết quả của bootstrap với hiệu số
+
+
+

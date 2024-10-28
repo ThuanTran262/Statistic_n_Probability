@@ -1,0 +1,80 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(faraway)
+```
+```{r}
+data("rats")
+```
+
+```{r}
+head(rats)
+```
+
+```{r}
+rats_int <- aov(time~poison*treat, data=rats)
+summary(rats_int)
+```
+Với anpha = 0.05, Kiểm định tương tác giữa 2 biến cho p-value = 0.112 > 0.05 nên chấp nhận Ho: không có sự tương tác giữa 2 nhân tố.
+Tuy nhiên nếu nhìn trực quan thì 2 biến này có sự tương tác yếu với nhau => nếu chọn 1 mức anpha khác thì có thể bác bỏ Ho
+
+```{r}
+# add model
+rats_add <- aov(time ~ poison + treat, data = rats)
+summary(rats_add)
+```
+poison -> Ho: tất cả các anpha_i đều bằng 0 với mọi i
+treat -> Ho: Tất cả các beta_j đều bằng 0 với mọi j
+Từ kết quả trên cho thấy cả poison và treat đều có ảnh hưởng tới biến phụ thuộc
+
+```{r}
+TukeyHSD(rats_add) # kiểm tra sự tương tác giữa các nhóm khác nhau trong các biến
+```
+```{r}
+shapiro.test(residuals(rats_add))
+```
+
+```{r}
+# bộ dữ liệu mới
+data("warpbreaks")
+head(warpbreaks)
+```
+```{r}
+str(warpbreaks)
+```
+
+```{r}
+with(warpbreaks, interaction.plot(wool, tension, breaks, lwd=2, col=2:4))
+```
+```{r}
+with(warpbreaks, interaction.plot(wool, tension, breaks, lwd=2, col=2:3))
+```
+```{r}
+summary(aov(breaks~wool*tension, data=warpbreaks))
+```
+
+Với mức ý nghĩa anpha = 0.06 thì wool có ảnh hưởng tới breaks, còn với ý nghĩa 5% thì không có ảnh hưởng
+Với mức ý nghĩa anpha, tension có ảnh hưởng tới breaks, wool và tension có sự tương tác
+
+
+```{r}
+war_model <- aov(breaks~wool*tension, data=warpbreaks)
+```
+
+```{r}
+TukeyHSD(war_model)
+```
+```{r}
+shapiro.test(residuals(war_model))
+```
+
+Lưu ý: Khi dùng lm thì dữ liệu phải là factor, khi dùng anova
+Khi cần ước lượng thì dùng lm, lm đầy đủ hơn anova
+
+```{r}
+# mod <- lm(Usure~Tension*Wool, contrasts = list(Tension=contr.sum, Wool=contr.sum), data=my_data)
+```
+
+
