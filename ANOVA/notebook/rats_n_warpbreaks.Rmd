@@ -1,10 +1,16 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 ```{r}
 library(faraway)
 ```
+
+# 1. Data "rats"
+
 ```{r}
 data("rats")
 ```
@@ -14,33 +20,47 @@ head(rats)
 ```
 
 ```{r}
+# multiply model:
 rats_int <- aov(time~poison*treat, data=rats)
 summary(rats_int)
 ```
-Với anpha = 0.05, Kiểm định tương tác giữa 2 biến cho p-value = 0.112 > 0.05 nên chấp nhận Ho: không có sự tương tác giữa 2 nhân tố.
-Tuy nhiên nếu nhìn trực quan thì 2 biến này có sự tương tác yếu với nhau => nếu chọn 1 mức anpha khác thì có thể bác bỏ Ho
+With hypothesis:\
+H0: There is no interaction between poison and treat that can affect the time\
+H1: The interaction between poison and treat can affect the time.\
+choose anpha = 0.05, p-value = 0.112 > 0.05 so we can not reject H0, we accept that there is no interaction between poison and treat that can affect the time.\
+Therefore, we will use add model instead of multiply model
 
 ```{r}
-# add model
+# add model:
 rats_add <- aov(time ~ poison + treat, data = rats)
 summary(rats_add)
 ```
-poison -> Ho: tất cả các anpha_i đều bằng 0 với mọi i
-treat -> Ho: Tất cả các beta_j đều bằng 0 với mọi j
-Từ kết quả trên cho thấy cả poison và treat đều có ảnh hưởng tới biến phụ thuộc
+Hypothesis for poison:\
+H0: for each i, all anpha i equal to 0\
+H1: exist i that anpha i != 0\
+Hypothesis for treat:\
+H0: for each j, all beta j equal to 0\
+H1: exist j that anpha j != 0\
+
+The result of aov function show that both poison and treat affects to time (p-value <= 0.05)
 
 ```{r}
-TukeyHSD(rats_add) # kiểm tra sự tương tác giữa các nhóm khác nhau trong các biến
+TukeyHSD(rats_add) # test for the interaction between difference groups inside each variable
 ```
+
 ```{r}
+# shapiro test for residual
 shapiro.test(residuals(rats_add))
 ```
+# 2. Data "warpbreaks"
 
 ```{r}
 # bộ dữ liệu mới
 data("warpbreaks")
 head(warpbreaks)
 ```
+
+
 ```{r}
 str(warpbreaks)
 ```
@@ -48,15 +68,17 @@ str(warpbreaks)
 ```{r}
 with(warpbreaks, interaction.plot(wool, tension, breaks, lwd=2, col=2:4))
 ```
+
 ```{r}
 with(warpbreaks, interaction.plot(wool, tension, breaks, lwd=2, col=2:3))
 ```
+
 ```{r}
 summary(aov(breaks~wool*tension, data=warpbreaks))
 ```
 
-Với mức ý nghĩa anpha = 0.06 thì wool có ảnh hưởng tới breaks, còn với ý nghĩa 5% thì không có ảnh hưởng
-Với mức ý nghĩa anpha, tension có ảnh hưởng tới breaks, wool và tension có sự tương tác
+If we choose anpha = 0.06, wool affects to breaks. If we choose anpha = 5%, it dose not affect.\
+Choose the anpha=0.05, tension impact breaks, wool and tension have interaction.
 
 
 ```{r}
@@ -66,15 +88,11 @@ war_model <- aov(breaks~wool*tension, data=warpbreaks)
 ```{r}
 TukeyHSD(war_model)
 ```
+
+
 ```{r}
 shapiro.test(residuals(war_model))
 ```
 
-Lưu ý: Khi dùng lm thì dữ liệu phải là factor, khi dùng anova
-Khi cần ước lượng thì dùng lm, lm đầy đủ hơn anova
-
-```{r}
-# mod <- lm(Usure~Tension*Wool, contrasts = list(Tension=contr.sum, Wool=contr.sum), data=my_data)
-```
 
 
