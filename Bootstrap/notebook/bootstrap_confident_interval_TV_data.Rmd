@@ -1,5 +1,5 @@
 ---
-title: "BÀI 4"
+title: "Confident interval for mean difference"
 output:
   pdf_document:
     latex_engine: xelatex

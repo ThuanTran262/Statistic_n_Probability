@@ -1,6 +1,5 @@
 ---
-title: "Mô hình Hồi quy bội - MPG Data"
-author: "Nhóm 2 (Nguyễn Thanh Trúc và Trần Thị Thuận)"
+title: "Liear regression - MPG Data"
 output:
   html_document:
     df_print: paged
@@ -19,8 +18,6 @@ library(readxl)
 library(ggplot2)
 library(readxl)
 
-# knitr::opts_knit$set(root.dir = "~/TrucNT7/Master/CoNgoc_MHHTK/")
-# knitr::opts_knit$set(root.dir = "~/Desktop/Statistics/CoNgoc_MHHTK/")
 data <- read.csv('./auto-mpg_data.csv', sep='', header=FALSE)
 # rename columns
 names(data) <- c("mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", "modelyear", "origin", "carname")
