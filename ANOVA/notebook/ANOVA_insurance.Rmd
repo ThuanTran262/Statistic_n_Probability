@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
@@ -28,9 +30,12 @@ The number of children in a family can take values from 0 to 5
 
 ```{r}
 boxplot(data$charges ~ data$children)
+means <- tapply(data$charges, data$children, mean)
+points(means, pch=20)
 ```
 
-In all groups of "children", There are outliers in charges
+In all groups of "children", appear outliers in charges
+We can see that there is the slightly difference in charge's mean between groups
 
 ```{r}
 data %>% group_by(children)  %>%
@@ -44,12 +49,19 @@ data$children <- as.factor(data$children)
 lm1 <- lm(charges~children, data=data) 
 anova(lm1)
 ```
-Do p-value < 0.05 nên ta bác bỏ giả thuyết Ho: Trung bình giữa các nhóm là như nhau và chấp nhận giả thuyết H1: có ít nhất 1 cặp có trung bình khác nhau.
+
+anova test with linear model:\
+Hypotheisis:\
+H0: The mean between groups is the same\
+H1: At least 1 couple of group has difference mean\
+
+Choose anpha=0.05, because p-value < 0.05, we reject H0 and accept H1
 
 ```{r}
 summary(lm1)
 ```
-Kiểm tra trung bình của từng cặp
+
+Paired mean comparison:
 
 ```{r}
 aov1 <- aov(charges~children, data=data) 
@@ -60,7 +72,5 @@ summary(aov1)
 #test all possible comparisons of two means. 
 with(data, pairwise.t.test(charges, children, p.adj = "bonferroni"))
 ```
-```{r}
-
-```
+As the bellow matrix, because p-value is more than 0.05 in all couple, we can conclusion that the number of children don't affect to insurance fee.
 
