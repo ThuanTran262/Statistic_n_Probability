@@ -5,8 +5,6 @@ date: "2024-05-11"
 ---
 
 ```{r}
-knitr::opts_knit$set(root.dir = "D:/thuantt2/Document/Learn/Mô hình hóa thống kê/")
-
 library(dplyr)
 library(caret)
 ```
