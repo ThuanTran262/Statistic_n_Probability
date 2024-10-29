@@ -1,6 +1,5 @@
 ---
-title: "Mô hình Hồi quy bội - Boston Housing Data"
-author: "Nhóm 2 (Nguyễn Thanh Trúc và Trần Thị Thuận)"
+title: "Linear regression - Boston Housing Data"
 output:
   html_document:
     df_print: paged
@@ -20,7 +19,6 @@ library(readxl)
 library(ggplot2)
 library(readxl)
 
-# knitr::opts_knit$set(root.dir = "~/Desktop/Statistics/CoNgoc_MHHTK/")
 data <- readxl::read_excel("./Boston.xlsx", sheet = "Hoja1")
 # rename columns
 names(data) <- c("CRIM", "ZN", "INDUS", "CHAS", "NOX", "RM", "AGE", "DIS", "RAD", "TAX", "PTRATIO", "B", "LSTAT", "MEDV")

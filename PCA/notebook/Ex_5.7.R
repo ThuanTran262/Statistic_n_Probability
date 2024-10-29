@@ -2,7 +2,6 @@ library(tidyverse)
 library(ggplot2)
 # Ex 5.7 -----------------------------------------------------------------
 ## a)---------------------------------------------------------------------------
-setwd("/thuantt2/Document/Learn/Thống kê nhiều chiều/")
 data = read.table('./data/VD5-4 (STOCK).DAT')
 View(data)
 (mS=cov(data))
