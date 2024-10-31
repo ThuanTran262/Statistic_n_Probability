@@ -7,9 +7,9 @@ output: html_notebook
 library(astsa)
 ```
 
-Áp dụng phương pháp differencing
+Apply "Differencing" method
 
-Vẽ đồng thời X_t, Y_t, X_t - X_t-1 trên cùng 1 figure
+Plot X_t, Y_t, X_t - X_t-1 on the same figure.
 
 ```{r}
 data <- chicken
@@ -50,7 +50,4 @@ plot(Y_t)
 plot(diff_chicken)
 ```
 
-```{r}
-
-```
 

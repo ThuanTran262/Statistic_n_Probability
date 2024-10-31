@@ -29,7 +29,7 @@ sample_mean
 n <- length(ts_ex1)
 ```
 
-# Tính auto-covariance
+# Calculate auto-covariance
 
 ```{r}
 acov_ex1_h <- sum((ts_ex1_lag-sample_mean)*(ts_ex1-sample_mean))/n
@@ -37,7 +37,7 @@ acov_ex1_h
 ```
 
 
-# Tính auto-correlation
+# Calculate auto-correlation
 
 ```{r}
 acov_ex1_0 <- sum((ts_ex1-sample_mean)^2)/n
@@ -49,7 +49,7 @@ acor_ex1_h <- acov_ex1_h/acov_ex1_0
 acor_ex1_h
 ```
 
-Trong R có hàm acf
+ Use "acf" function in R
 
 ```{r}
 help(acf)
@@ -93,7 +93,7 @@ n
 10*log10((n-1)/m)
 ```
 
-# BÀI TẬP 1
+# Question 1
 Thực hiện lại Thí dụ 1 tính sample ACF và sample CCF cho SOI series St bằng hai cách
 • cách 1: tính trực tiếp theo công thức ước lượng lý thuyết;
 • cách 2: sử dụng hàm acf(...);
